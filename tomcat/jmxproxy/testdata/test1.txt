@@ -1,0 +1,76 @@
+OK - Number of results: 1
+
+Name: Catalina:j2eeType=WebModule,name=//localhost/,J2EEApplication=none,J2EEServer=none
+modelerType: org.apache.catalina.mbeans.ContextMBean
+saveConfig: true
+encodedPath: 
+managedResource: StandardEngine[Catalina].StandardHost[localhost].StandardContext[]
+manager: org.apache.catalina.session.StandardManager[]
+cacheTTL: 5000
+configured: true
+startTime: 1364261440532
+distributable: false
+tldNamespaceAware: false
+staticResources: org.apache.naming.resources.ProxyDirContext@472f07b9
+realm: Realm[LockOutRealm]
+stateManageable: true
+antiJARLocking: false
+instanceManager: org.apache.catalina.core.DefaultInstanceManager@60a42731
+servlets: Array[java.lang.String] of length 2
+	Catalina:j2eeType=Servlet,name=default,WebModule=//localhost/,J2EEApplication=none,J2EEServer=none
+	Catalina:j2eeType=Servlet,name=jsp,WebModule=//localhost/,J2EEApplication=none,J2EEServer=none
+loader: WebappLoader[]
+logEffectiveWebXml: false
+processingTime: 0
+xmlNamespaceAware: false
+useNaming: true
+deploymentDescriptor: <?xml version="1.0" encoding="ISO-8859-1"?><!-- Licensed to the Apache Software Foundation (ASF) under one or more  contributor license agreements.  See the NOTICE file distributed with  this work for additional information regarding copyright ownership.  The ASF licenses this file to You under the Apache License, Version 2.0  (the "License"); you may not use this file except in compliance with  the License.  You may obtain a copy of the License at      http://www.apache.org/licenses/LICENSE-2.0  Unless required by applicable law or agreed to in writing, software  distributed under the License is distributed on an "AS IS" BASIS,  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  See the License for the specific language governing permissions and  limitations under the License.--><web-app xmlns="http://java.sun.com/xml/ns/javaee"  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"  xsi:schemaLocation="http://java.sun.com/xml/ns/javaee                      http://java.sun.com/xml/ns/javaee/web-app_3_0.xsd"  version="3.0"  metadata-complete="true">  <display-name>Welcome to Tomcat</display-name>  <description>     Welcome to Tomcat  </description></web-app>
+cacheObjectMaxSize: 512
+webappVersion: 
+override: false
+baseName: ROOT
+cachingAllowed: true
+namingContextListener: org.apache.catalina.core.NamingContextListener@39093388
+swallowOutput: false
+privileged: false
+unloadDelay: 2000
+parentClassLoader: org.apache.catalina.loader.StandardClassLoader@509df6f1
+docBase: ROOT
+eventProvider: false
+workDir: work/Catalina/localhost/_
+tldScanTime: 1
+statisticsProvider: false
+clearReferencesStopThreads: false
+clearReferencesStatic: false
+children: Array[javax.management.ObjectName] of length 2
+	Catalina:j2eeType=Servlet,name=default,WebModule=//localhost/,J2EEApplication=none,J2EEServer=none
+	Catalina:j2eeType=Servlet,name=jsp,WebModule=//localhost/,J2EEApplication=none,J2EEServer=none
+delegate: false
+mappingObject: StandardEngine[Catalina].StandardHost[localhost].StandardContext[]
+startupTime: 0
+crossContext: false
+welcomeFiles: Array[java.lang.String] of length 3
+	index.html
+	index.htm
+	index.jsp
+name: 
+logger: org.apache.juli.logging.DirectJDKLog@b1642f9
+path: 
+clearReferencesStopTimerThreads: false
+cookies: true
+reloadable: false
+tldValidation: false
+objectName: Catalina:j2eeType=WebModule,name=//localhost/,J2EEApplication=none,J2EEServer=none
+useHttpOnly: true
+renewThreadsWhenStoppingContext: true
+paused: false
+antiResourceLocking: false
+sessionTimeout: 30
+cacheMaxSize: 10240
+ignoreAnnotations: true
+unpackWAR: true
+stateName: STARTED
+xmlValidation: false
+displayName: Welcome to Tomcat
+allowLinking: false
+
