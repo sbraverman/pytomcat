@@ -148,7 +148,7 @@ class Tomcat:
         >>> t.undeploy_old_versions('localhost') # Undeploy from localhost
         >>> t.undeploy_old_versions() # Undeploy from all configured vhosts
         '''
-        if host == None:
+        if vhost == None:
             deployers = self.deployers().keys()
         else:
             deployers = [ 'Catalina:type=Deployer,host={0}'.format(vhost) ]
