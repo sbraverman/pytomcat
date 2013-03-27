@@ -1,10 +1,12 @@
 #!/usr/bin/env python
 
 from jmxproxy import JMXProxyConnection
+from manager import ManagerConnection
 
 class Tomcat:
     def __init__(self, host, user = 'admin', passwd = 'admin', port = 8080):
         self.jmx = JMXProxyConnection(host, user, passwd, port)
+        self.mgr = ManagerConnection(host, user, passwd, port)
 
     def memory_info(self):
         '''
@@ -137,7 +139,7 @@ class Tomcat:
                 rv[k] = ids.rstrip().split(' ')
         return rv
 
-    def undeploy_old_versions(self, host=None):
+    def undeploy_old_versions(self, vhost=None):
         '''
         Invoke 'checkUndeploy' on 'Catalina:type=Deployer' to undeploy old
         versions of webapps. The webapps must have no active sessions in order
@@ -149,7 +151,7 @@ class Tomcat:
         if host == None:
             deployers = self.deployers().keys()
         else:
-            deployers = [ 'Catalina:type=Deployer,host={0}'.format(host) ]
+            deployers = [ 'Catalina:type=Deployer,host={0}'.format(vhost) ]
 
         for d in deployers:
             self.jmx.invoke(d, 'checkUndeploy')
@@ -168,4 +170,20 @@ class Tomcat:
 
     def max_nonheap(self):
         return self.jmx.get('java.lang:type=Memory', 'NonHeapMemoryUsage', 'max')
+
+    def deploy(self, filename, path=None, vhost='localhost'):
+        '''
+        Deploy a Web application archive (WAR)
+
+        >>> t.deploy('/tmp/myapp.war')
+        '''
+        return self.mgr.deploy(filename, path, vhost)
+
+    def undeploy(self, context, vhost='localhost'):
+        '''
+        Remove a web application from the server
+
+        >>> t.undeploy('/myapp')
+        '''
+        self.mgr.undeploy(context, vhost)
 
