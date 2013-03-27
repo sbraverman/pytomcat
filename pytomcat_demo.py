@@ -7,10 +7,13 @@ def main():
     t = Tomcat('localhost', 'admin', 'admin')
 
     print 'Number of Threads: {0}'.format(len(t.dump_all_threads()))
-    print 'Cluster: {0}'.format(t.is_clustered())
-    print 'Cluster Name: {0}'.format(t.cluster_name())
-    print 'Cluster Members: {0}'.format(map(lambda x: x['hostname'], t.cluster_members().values()))
-    print 'Active Members: {0}'.format(map(lambda x: x['hostname'], t.active_members().values()))
+    has_cluster = t.has_cluster()
+    print 'Cluster: {0}'.format(has_cluster)
+    if has_cluster:
+        print '\tName: {0}'.format(t.cluster_name())
+        print '\tMembers: {0}'.format(map(lambda x: x['hostname'], t.cluster_members().values()))
+        print '\tActive: {0}'.format(map(lambda x: x['hostname'], t.active_members().values()))
+
     print 'Memory:'
     print '\tMax Heap Size     : {0:3} MiB'.format(t.max_heap() / 1048576)
     print '\tMax Non-Heap Size : {0:3} MiB'.format(t.max_nonheap() / 1048576)

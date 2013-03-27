@@ -70,7 +70,7 @@ class Tomcat:
         '''
         return self.jmx.query('Catalina:type=Deployer,*')
 
-    def is_clustered(self):
+    def has_cluster(self):
         '''
         Return true if this instance of Tomcat is member of a cluster
         '''
