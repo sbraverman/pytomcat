@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import re
-from tomcat import Tomcat
+from tomcat import Tomcat,TomcatCluster
 
 def main():
     t = Tomcat('localhost', 'admin', 'admin')
@@ -32,8 +32,8 @@ def main():
         print '\t - {baseName:<20} {path:<20} {stateName:<10} {webappVersion}'.format(**a)
 
     print "Session counts:"
-    for k, v in t.sessions_summary().iteritems():
-        print '\t - {0:<50}: {1}'.format(re.sub('^.*?,','',k), v['activeSessions'])
+    for k, v in t.find_managers().iteritems():
+        print '\t - {0:<30}: {1}'.format(k, v['activeSessions'])
 
     print "Active Session IDs:"
     for k, v in t.list_sessions().iteritems():
@@ -42,9 +42,11 @@ def main():
             for id in v:
                 print '\t\t - {0}'.format(id)
 
-    #t.undeploy_old_versions('localhost')
     t.undeploy_old_versions()
+    t.expire_sessions('/manager')
     t.run_gc()
+    c = TomcatCluster('localhost', 'admin', 'admin')
+    print 'Cluster wide Max Heap: %s' % c.run_command('max_heap')
 
 if __name__ == "__main__":
     main()

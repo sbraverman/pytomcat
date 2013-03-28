@@ -24,8 +24,13 @@ class JMXProxyConnection:
         return rv
 
     def query(self, qry):
+        def inject_oname(obj_map):
+            for k, v in obj_map.iteritems():
+                if not 'objectName' in v:
+                    v['objectName'] = k
+            return obj_map
         data = self._do_get(urllib.urlencode({ 'qry' : qry }))
-        return parse('search_results', data)
+        return inject_oname(parse('search_results', data))
 
     def get(self, bean, property, key = None):
         qry = { 'get': bean, 'att': property }

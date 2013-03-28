@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import re
 from error import TomcatError
 from jmxproxy import JMXProxyConnection
 from manager import ManagerConnection
@@ -102,7 +103,7 @@ class Tomcat:
         m = self.cluster_members()
         return dict((k, v) for k, v in m.iteritems() if is_active(v))
 
-    def list_webapps(self, vhost='*'):
+    def list_webapps(self, app='*', vhost='*'):
         '''
         List webapps running on the specified host
 
@@ -120,16 +121,25 @@ class Tomcat:
         http://tomcat.apache.org/tomcat-7.0-doc/api/org/apache/catalina/Lifecycle.html
         http://tomcat.apache.org/tomcat-7.0-doc/api/org/apache/catalina/LifecycleState.html
         '''
-        return self.jmx.query(
-                   'Catalina:j2eeType=WebModule,name=//{0}/*,*'.format(vhost))
+        def sanitize_name(name):
+            return '/' if name == None else name
+        rv = self.jmx.query(
+                   'Catalina:j2eeType=WebModule,name=//{0}/{1},*'.format(vhost, app))
+        return { sanitize_name(v['name']): v for k, v in rv.iteritems() }
 
-    def sessions_summary(self, app='*', vhost='*'):
+    def find_managers(self, app='*', vhost='*'):
         '''
         TODO
         '''
-        return self.jmx.query(
+        def extract_context(mgr_id):
+            # FIXME: depends on the exact ordering of parts in the object ID
+            return re.match(
+                       '^Catalina:type=Manager,context=(.+?),host=(.+?)',
+                       mgr_id).group(1)
+        rv = self.jmx.query(
                    'Catalina:type=Manager,context={0},host={1}'
                    .format(app, vhost))
+        return { extract_context(k): v for k, v in rv.iteritems() }
 
     def _list_session_ids(self, mgr_obj_id):
         ids = self.jmx.invoke(mgr_obj_id, 'listSessionIds')
@@ -143,9 +153,9 @@ class Tomcat:
         TODO
         '''
         rv = {}
-        for k, v in self.sessions_summary(app, vhost).iteritems():
+        for k, v in self.find_managers(app, vhost).iteritems():
             if v['activeSessions'] > 0:
-                rv[k] = self._list_session_ids(k)
+                rv[k] = self._list_session_ids(v['objectName'])
             else:
                 rv[k] = []
         return rv
@@ -218,3 +228,34 @@ class Tomcat:
         for mgr, ids in sessions.iteritems():
             for id in ids:
                 self._expire_session(mgr, id)
+
+class TomcatCluster:
+    members = {}
+
+    def __init__(self, host = None, user = None, passwd = None, port = 8080):
+        self.user = user
+        self.passwd = passwd
+        self.port = port
+        if host != None:
+            self._discover(Tomcat(host, user, passwd, port))
+
+    def _discover(self, t):
+        for h in map(lambda x: x['hostname'], t.active_members().values()):
+            if not h in self.members:
+                self.members[h] = Tomcat(h, self.user, self.passwd, self.port)
+                self._discover(self.members[h])
+
+    def add_member(self, t):
+        if t.host in members:
+            raise TomcatError('{0} already exists'.format(t.host))
+        members[t.host] = t
+
+    def run_command(self, command, *args):
+        rv = {}
+        for (host, t) in self.members.iteritems():
+            try:
+                rv[host] = getattr(t, command)(*args)
+            except TomcatError as e:
+                rv[host] = e
+        return rv
+
