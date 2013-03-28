@@ -216,19 +216,25 @@ class Tomcat:
     def _expire_session(self, mgr_obj_id, session_id):
         self.jmx.invoke(mgr_obj_id, 'expireSession', session_id)
 
-    def expire_sessions(self, context, vhost = '*'):
+    def expire_sessions(self, app, vhost = '*'):
         '''
         Forcefully expire ALL active sessions in a webapp
 
         >>> t.expire_sessions('/manager')
         '''
-        sessions = self.list_sessions(context, vhost)
+        sessions = self.list_sessions(app, vhost)
         if len(sessions) <= 0:
             raise TomcatError("Unable to find context '{0}' from vhost '{1}'"
-                              .format(context, vhost))
-        for mgr, ids in sessions.iteritems():
+                              .format(app, vhost))
+
+        mgrs = self.find_managers(app, vhost)
+        for ctx, ids in sessions.iteritems():
             for id in ids:
-                self._expire_session(mgr, id)
+                if not ctx in mgrs:
+                    raise TomcatError(
+                              "Unable to find manager for context '{0}' from vhost '{1}'"
+                              .format(app, vhost))
+                self._expire_session(mgrs[ctx]['objectName'], id)
 
 def parse_warfile(filename):
     m = re.match('^(?P<ctx>(?P<path>.+?)(##(?P<ver>.+?))?)\\.war$',
