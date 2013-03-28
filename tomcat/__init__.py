@@ -124,7 +124,8 @@ class Tomcat:
         def sanitize_name(name):
             return '/' if name == None else name
         rv = self.jmx.query(
-                   'Catalina:j2eeType=WebModule,name=//{0}/{1},*'.format(vhost, app))
+                   'Catalina:j2eeType=WebModule,name=//{0}/{1},*'
+                   .format(vhost, re.sub('^/', '', app)))
         return { sanitize_name(v['name']): v for k, v in rv.iteritems() }
 
     def find_managers(self, app='*', vhost='*'):
