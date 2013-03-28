@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+from error import TomcatError
 import urllib, urllib2, base64, os, re
 
 class ManagerConnection:
@@ -30,7 +31,7 @@ class ManagerConnection:
         result = urllib2.urlopen(request, None, self.timeout)
         rv = result.read().replace('\r','')
         if not rv.startswith('OK'):
-            raise ManagerError(rv)
+            raise TomcatError(rv)
         return rv
 
     def _do_get(self, command, parameters, vhost):
@@ -55,12 +56,6 @@ class ManagerConnection:
 
     def undeploy(self, path, vhost='localhost'):
         self._do_get('undeploy', urllib.urlencode({ 'path' : path }), vhost)
-
-
-class ManagerError(Exception):
-    '''
-    Exception raised on Tomcat manager error
-    '''
 
 class _urllib_file(file):
     # http://stackoverflow.com/questions/5925028/urllib2-post-progress-monitoring

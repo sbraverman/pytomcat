@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+from error import TomcatError
 import urllib, urllib2, base64
 from parser import parse
 
@@ -17,7 +18,10 @@ class JMXProxyConnection:
         request = urllib2.Request('%s?%s' % (self.baseurl, request))
         request.add_header("Authorization", self.auth_header)
         result = urllib2.urlopen(request, None, self.timeout)
-        return result.read().replace('\r','')
+        rv = result.read().replace('\r','')
+        if not rv.startswith('OK'):
+            raise TomcatError(rv)
+        return rv
 
     def query(self, qry):
         data = self._do_get(urllib.urlencode({ 'qry' : qry }))

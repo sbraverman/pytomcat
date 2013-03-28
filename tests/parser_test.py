@@ -1,6 +1,10 @@
 #!/usr/bin/env python
 
-from parser import parse
+import os,sys
+parentdir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0,parentdir)
+
+from tomcat.parser import parse
 
 # Testing code below
 def test():
