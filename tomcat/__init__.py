@@ -101,7 +101,7 @@ class Tomcat:
         m = self.cluster_members()
         return dict((k, v) for k, v in m.iteritems() if is_active(v))
 
-    def list_webapps(self, host='*'):
+    def list_webapps(self, vhost='*'):
         '''
         List webapps running on the specified host
 
@@ -116,22 +116,22 @@ class Tomcat:
         >>>
         '''
         return self.jmx.query(
-                   'Catalina:j2eeType=WebModule,name=//{0}/*,*'.format(host))
+                   'Catalina:j2eeType=WebModule,name=//{0}/*,*'.format(vhost))
 
-    def sessions_summary(self, app='*', host='*'):
+    def sessions_summary(self, app='*', vhost='*'):
         '''
         TODO
         '''
         return self.jmx.query(
                    'Catalina:type=Manager,context={0},host={1}'
-                   .format(app, host))
+                   .format(app, vhost))
 
-    def list_sessions(self, app='*', host='*'):
+    def list_sessions(self, app='*', vhost='*'):
         '''
         TODO
         '''
         rv = {}
-        for k in self.sessions_summary(app, host):
+        for k in self.sessions_summary(app, vhost):
             ids = self.jmx.invoke(k, 'listSessionIds')
             if ids == None:
                 rv[k] = []
