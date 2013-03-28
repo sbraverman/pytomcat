@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+from error import TomcatError
 from jmxproxy import JMXProxyConnection
 from manager import ManagerConnection
 
@@ -114,6 +115,10 @@ class Tomcat:
         examples             /examples            STARTING
         host-manager         /host-manager        STOPPED
         >>>
+
+        See Also:
+        http://tomcat.apache.org/tomcat-7.0-doc/api/org/apache/catalina/Lifecycle.html
+        http://tomcat.apache.org/tomcat-7.0-doc/api/org/apache/catalina/LifecycleState.html
         '''
         return self.jmx.query(
                    'Catalina:j2eeType=WebModule,name=//{0}/*,*'.format(vhost))
@@ -126,24 +131,34 @@ class Tomcat:
                    'Catalina:type=Manager,context={0},host={1}'
                    .format(app, vhost))
 
+    def _list_session_ids(self, mgr_obj_id):
+        ids = self.jmx.invoke(mgr_obj_id, 'listSessionIds')
+        if ids == None:
+            return []
+        else:
+            return ids.rstrip().split(' ')
+
     def list_sessions(self, app='*', vhost='*'):
         '''
         TODO
         '''
         rv = {}
-        for k in self.sessions_summary(app, vhost):
-            ids = self.jmx.invoke(k, 'listSessionIds')
-            if ids == None:
-                rv[k] = []
+        for k, v in self.sessions_summary(app, vhost).iteritems():
+            if v['activeSessions'] > 0:
+                rv[k] = self._list_session_ids(k)
             else:
-                rv[k] = ids.rstrip().split(' ')
+                rv[k] = []
         return rv
 
     def undeploy_old_versions(self, vhost=None):
         '''
         Invoke 'checkUndeploy' on 'Catalina:type=Deployer' to undeploy old
-        versions of webapps. The webapps must have no active sessions in order
-        to be undeployed by this call.
+        versions of webapps that share the same path. The distinction is made
+        by comparing the 'webappVersion' property. Webapps must have no active
+        sessions in order to be undeployed by this call.
+
+        NB! As of Tomcat 7.0.37 versions are compared as strings
+            thus 2 > 10, however 02 < 10
 
         >>> t.undeploy_old_versions('localhost') # Undeploy from localhost
         >>> t.undeploy_old_versions() # Undeploy from all configured vhosts
@@ -187,3 +202,19 @@ class Tomcat:
         '''
         self.mgr.undeploy(context, vhost)
 
+    def _expire_session(self, mgr_obj_id, session_id):
+        self.jmx.invoke(mgr_obj_id, 'expireSession', session_id)
+
+    def expire_sessions(self, context, vhost = '*'):
+        '''
+        Forcefully expire ALL active sessions in a webapp
+
+        >>> t.expire_sessions('/manager')
+        '''
+        sessions = self.list_sessions(context, vhost)
+        if len(sessions) <= 0:
+            raise TomcatError("Unable to find context '{0}' from vhost '{1}'"
+                              .format(context, vhost))
+        for mgr, ids in sessions.iteritems():
+            for id in ids:
+                self._expire_session(mgr, id)
