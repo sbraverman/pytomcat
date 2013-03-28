@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 from error import TomcatError
-import urllib, urllib2, base64, os, re
+import urllib, urllib2, base64, os
 
 class ManagerConnection:
     '''
@@ -45,17 +45,13 @@ class ManagerConnection:
         request.get_method = lambda: 'PUT'
         return self._do_request(request, vhost)
 
-    def deploy(self, filename, path=None, vhost='localhost'):
-        def _base_name(filename):
-            return re.sub('\\.war$', '', os.path.basename(filename), flags=re.I)
-        if path == None:
-            path = '/' + _base_name(filename)
-        params = urllib.urlencode({ 'path': path })
+    def deploy(self, filename, context, vhost='localhost'):
+        params = urllib.urlencode({ 'path': context })
         data = _urllib_file(filename, 'r', self.progress)
         return self._do_put('deploy', params, data, vhost)
 
-    def undeploy(self, path, vhost='localhost'):
-        self._do_get('undeploy', urllib.urlencode({ 'path' : path }), vhost)
+    def undeploy(self, context, vhost='localhost'):
+        self._do_get('undeploy', urllib.urlencode({ 'path' : context }), vhost)
 
 class _urllib_file(file):
     # http://stackoverflow.com/questions/5925028/urllib2-post-progress-monitoring

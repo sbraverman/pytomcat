@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import re
+import re, os
 from error import TomcatError
 from jmxproxy import JMXProxyConnection
 from manager import ManagerConnection
@@ -202,7 +202,8 @@ class Tomcat:
 
         >>> t.deploy('/tmp/myapp.war')
         '''
-        return self.mgr.deploy(filename, path, vhost)
+        (context, path, version) = parse_warfile(filename)
+        return self.mgr.deploy(filename, context, vhost)
 
     def undeploy(self, context, vhost='localhost'):
         '''
@@ -228,6 +229,11 @@ class Tomcat:
         for mgr, ids in sessions.iteritems():
             for id in ids:
                 self._expire_session(mgr, id)
+
+def parse_warfile(filename):
+    m = re.match('^(?P<ctx>(?P<path>.+?)(##(?P<ver>.+?))?)\\.war$',
+                 '/' + os.path.basename(filename), flags=re.I)
+    return ( m.group('ctx'), m.group('path'), m.group('ver') )
 
 class TomcatCluster:
     members = {}
