@@ -39,6 +39,10 @@ class ClusterDeployer:
     def _clean_old_apps(self, new_apps, vhost='*'):
         (stats, paths, all_paths) = self._get_webapps(vhost)
         for ctx, path, ver in new_apps:
+            if ctx in stats:
+                raise TomcatError(
+                        'There is already a context {0} on {1}'
+                        .format(ctx, ' and '.join(stats[ctx]['presentOn'])))
             if path in all_paths:
                 if ver == None:
                     raise TomcatError(
