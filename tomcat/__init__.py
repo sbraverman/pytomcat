@@ -257,6 +257,8 @@ class Tomcat:
 def parse_warfile(filename):
     m = re.match('^(?P<ctx>(?P<path>.+?)(##(?P<ver>.+?))?)\\.war$',
                  '/' + os.path.basename(filename), flags=re.I)
+    if m == None:
+        raise TomcatError("Invalid WAR file name: '{0}'".format(filename))
     return ( m.group('ctx'), m.group('path'), m.group('ver') )
 
 class TomcatCluster:
