@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import re, os, time
+import re, os, time, logging
 from error import TomcatError
 from jmxproxy import JMXProxyConnection
 from manager import ManagerConnection
@@ -267,6 +267,7 @@ class TomcatCluster:
     members = {}
 
     def __init__(self, host = None, user = None, passwd = None, port = 8080):
+        self.log = logging.getLogger('pytomcat.TomcatCluster')
         self.user = user
         self.passwd = passwd
         self.port = port
@@ -276,6 +277,7 @@ class TomcatCluster:
     def _discover(self, t):
         for h in map(lambda x: x['hostname'], t.active_members().values()):
             if not h in self.members:
+                self.log.info("Autodiscovered cluster member '%s'", h)
                 self.members[h] = Tomcat(h, self.user, self.passwd, self.port)
                 self._discover(self.members[h])
 
@@ -285,9 +287,12 @@ class TomcatCluster:
         members[t.host] = t
 
     def run_command(self, command, *args):
+        if len(self.members) <= 0:
+            raise TomcatError("Cluster has no members")
         rv = {}
         for (host, t) in self.members.iteritems():
             try:
+                self.log.debug("Performing %s%s on %s", command, args, host)
                 rv[host] = getattr(t, command)(*args)
             except TomcatError as e:
                 rv[host] = e
