@@ -37,7 +37,7 @@ class ClusterDeployer:
         if self.kill_sessions:
             for app in apps:
                 self.log.info('Forcefully expiring sessions for %s', app)
-                c.run_command('expire_sessions', app, vhost)
+                self.c.run_command('expire_sessions', app, vhost)
         self.log.info('Attempting to undeploy old versions across the cluster')
         self.c.run_command('undeploy_old_versions', vhost)
         (stats, paths, all_paths) = self._get_webapps(vhost)
