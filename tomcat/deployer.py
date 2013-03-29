@@ -65,9 +65,15 @@ class ClusterDeployer:
                         .format(path, ' and '.join(paths[path])))
                 else:
                     if len(paths[path]) > 1:
-                        # TODO: Check if any existing version is newer than the one
-                        #       we are attempting to deploy
-                        self._undeploy_old_versions(path, paths[path], vhost)
+                        # Tomcat uses a simple sorted list of strings to determine
+                        # which version is the latest
+                        latest = sorted([ ctx ] + paths[path])[-1]
+                        if ctx != latest:
+                            raise TomcatError(
+                                'There is a webapp {0} deployed to {1} that is newer than {2}'
+                                .format(latest, path, ctx))
+                        oldapps = sorted(paths[path])[:-1]
+                        self._undeploy_old_versions(path, oldapps, vhost)
 
     def _check_memory(self):
         self.log.info("Checking that all cluster nodes have at least %s%% of free memory",
