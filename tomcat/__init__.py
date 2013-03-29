@@ -43,6 +43,23 @@ class Tomcat:
             usage[k] = 100 * v['used'] / v['max']
 
         return usage
+        
+    def check_memory(self, percentage, waitTime=30, poll_interval=5):
+        gc_done = False
+        wait_total = 0
+        while len(self.find_pools_over(percentage)) > 0:
+            if wait_total > waitTime:
+                return False
+            if not gc_done:
+                self.run_gc()
+                gc_done = True
+            time.sleep(poll_interval)
+            wait_total += poll_interval
+
+        return True
+
+    def find_pools_over(self, percentage):
+        return list(k for k, v in self.memory_usage().iteritems() if v > percentage)
 
     def run_gc(self):
         '''
