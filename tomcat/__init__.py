@@ -272,3 +272,51 @@ class TomcatCluster:
                 rv[host] = e
         return rv
 
+    def webapp_status(self, app='*', vhost='*'):
+        '''
+        Perform a cluster-wide discovery to find webapps that match the filter.
+
+        >>> c.webapp_status('/manager')
+        {'/manager': {'coherent': True, 'stateName': 'STARTED', 'presentOn': ['10.1.6.1'], ... }}
+        '''
+        interesting_keys = [ 'stateName', 'path', 'webappVersion' ]
+
+        def new_stats():
+            rv = {
+                'presentOn': [],
+                'coherent': True,
+                'clusterDetails': { k: {} for k in interesting_keys }
+            }
+            rv.update({ k: None for k in interesting_keys })
+            return rv
+
+        def populate_interesting(stats):
+            for key in interesting_keys:
+                cd = stats['clusterDetails']
+                cd[key].update({ host: v[app][key] })
+
+        def consolidate_interesting(stats):
+            for key in interesting_keys:
+                d = stats['clusterDetails'][key]
+                unique = set(i for i in d.values())
+                if len(unique) == 1:
+                    stats[key] = unique.pop()
+                else:
+                    stats['coherent'] = False
+
+        apps = self.run_command('list_webapps', app, vhost)
+        all_keys = set.union(*map(set, apps.values()))
+        rv = {}
+        for app in all_keys:
+            stats = new_stats()
+            for host, v in apps.iteritems():
+                if app in v:
+                    stats['presentOn'].append(host)
+                    populate_interesting(stats)
+            consolidate_interesting(stats)
+            if len(stats['presentOn']) != len(self.members):
+                stats['coherent'] = False
+            rv[app] = stats
+
+        return rv
+
