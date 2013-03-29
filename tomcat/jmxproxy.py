@@ -1,12 +1,13 @@
 #!/usr/bin/env python
 
-from error import TomcatError
-import urllib, urllib2, base64
+import urllib, urllib2, base64, logging
 from parser import parse
+from error import TomcatError
 
 class JMXProxyConnection:
     def __init__(self, host, user = 'admin', passwd = 'admin',
                  port = 8080, timeout = 10):
+        self.log = logging.getLogger('pytomcat.jmxproxy')
         self.timeout = timeout
         self.baseurl = 'http://%s:%s/manager/jmxproxy/' % (host, port)
         # use custom header, HTTPBasicAuthHandler is an overcomplicated POS
@@ -17,8 +18,10 @@ class JMXProxyConnection:
     def _do_get(self, request):
         request = urllib2.Request('%s?%s' % (self.baseurl, request))
         request.add_header("Authorization", self.auth_header)
+        self.log.debug("JMXProxy request: %s", request.get_full_url())
         result = urllib2.urlopen(request, None, self.timeout)
         rv = result.read().replace('\r','')
+        self.log.debug("JMXProxy response: %s", rv)
         if not rv.startswith('OK'):
             raise TomcatError(rv)
         return rv
