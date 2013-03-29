@@ -214,13 +214,15 @@ class Tomcat:
     def max_nonheap(self):
         return self.jmx.get('java.lang:type=Memory', 'NonHeapMemoryUsage', 'max')
 
-    def deploy(self, filename, path=None, vhost='localhost'):
+    def deploy(self, filename, context=None, vhost='localhost'):
         '''
         Deploy a Web application archive (WAR)
 
         >>> t.deploy('/tmp/myapp.war')
         '''
-        (context, path, version) = parse_warfile(filename)
+        (ctx, path, version) = parse_warfile(filename)
+        if context == None:
+            context = ctx
         return self.mgr.deploy(filename, context, vhost)
 
     def undeploy(self, context, vhost='localhost'):
