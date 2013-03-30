@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import re, os, logging
+from multiprocessing.pool import ThreadPool
 from error import TomcatError
 from jmxproxy import JMXProxyConnection
 from manager import ManagerConnection
@@ -259,6 +260,7 @@ def parse_warfile(filename):
     return ( m.group('ctx'), m.group('path'), m.group('ver') )
 
 class TomcatCluster:
+    max_threads = 20
     members = {}
     progress_callback = None
 
@@ -278,11 +280,6 @@ class TomcatCluster:
                 self._discover(self.members[h])
         self.set_progress_callback(self.progress_callback)
 
-    def add_member(self, t):
-        if t.host in members:
-            raise TomcatError('{0} already exists'.format(t.host))
-        members[t.host] = t
-
     def _run_progress_callback(self, **args):
         if self.progress_callback != None:
             try:
@@ -290,25 +287,37 @@ class TomcatCluster:
             except Exception as e:
                 self.log.error('running progress callback: %s', e)
 
+    def member_count(self):
+        return len(self.members)
+
+    def add_member(self, t):
+        if t.host in members:
+            raise TomcatError('{0} already exists'.format(t.host))
+        members[t.host] = t
+
     def run_command(self, command, *args, **opts):
         if len(self.members) <= 0:
             raise TomcatError("Cluster has no members")
-        if 'hosts' in opts:
-            hosts = opts['hosts']
-        else:
-            hosts = self.members.keys()
-        rv = {}
-        for host in hosts:
+        def run_cmd(host):
             try:
                 self.log.debug("Performing %s%s on %s", command, args, host)
                 self._run_progress_callback(event=events.CMD_START,
                         command=command, args=args, node=host)
-                rv[host] = getattr(self.members[host], command)(*args)
+
+                rv = getattr(self.members[host], command)(*args)
+
                 self._run_progress_callback(event=events.CMD_END,
                         command=command, args=args, node=host)
             except TomcatError as e:
-                rv[host] = e
-        return rv
+                rv = e
+            return (host, rv)
+
+        hosts = opts.setdefault('hosts', self.members.keys())
+        threads = opts.setdefault('threads',
+                      min(self.member_count(), self.max_threads))
+        pool = ThreadPool(processes=threads)
+
+        return dict(pool.map(run_cmd, hosts))
 
     def set_progress_callback(self, callback):
         self.progress_callback = callback
