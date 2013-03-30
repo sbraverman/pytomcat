@@ -10,9 +10,9 @@ def parse_warfiles(warfiles):
 class ClusterDeployer:
     undeploy_on_error = True
     port = 8080
-    poll_interval=5
-    deploy_wait_time=30
-    gc_wait_time=30
+    poll_interval = 5
+    deploy_wait_time = 30
+    gc_wait_time = 30
     required_memory = 50
     check_memory = True
     auto_gc = True
@@ -80,12 +80,15 @@ class ClusterDeployer:
                         self._undeploy_old_versions(path, oldapps, vhost)
 
     def _get_memory(self, percentage, hosts=None):
+        def ignore_filter(lst):
+            ignore_pools = [ 'Par Eden Space', 'Par Survivor Space' ]
+            return filter(lambda x: x not in ignore_pools, lst)
         if hosts != None:
             opts = { 'hosts': hosts }
         else:
             opts = {}
         rv = self.c.run_command('find_pools_over', 100 - self.required_memory, **opts)
-        rv = dict(filter(lambda (k, v): len(v) > 0, rv.items()))
+        rv = dict(filter(lambda (k, v): len(ignore_filter(v)) > 0, rv.items()))
         self.log.debug('Hosts with low memory returned: %s', rv)
         return rv
 
