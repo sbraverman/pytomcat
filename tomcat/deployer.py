@@ -7,14 +7,16 @@ def parse_warfiles(warfiles):
     return dict((f, parse_warfile(f)) for f in warfiles)
 
 class ClusterDeployer:
-    required_memory = 50
-    check_memory = True
     undeploy_on_error = True
-    kill_sessions = False
-    auto_reboot = False
     port = 8080
     poll_interval=5
     deploy_wait_time=10
+    gc_wait_time=30
+    required_memory = 50
+    check_memory = True
+    auto_gc = True
+    kill_sessions = False
+    auto_reboot = False
 
     def __init__(self, opts):
         self.log = logging.getLogger('pytomcat.deployer')
@@ -75,13 +77,50 @@ class ClusterDeployer:
                         oldapps = sorted(paths[path])[:-1]
                         self._undeploy_old_versions(path, oldapps, vhost)
 
+    def _get_memory(self, percentage, hosts=None):
+        if hosts != None:
+            opts = { 'hosts': hosts }
+        else:
+            opts = {}
+        rv = self.c.run_command('find_pools_over', 100 - self.required_memory, **opts)
+        rv = dict(filter(lambda (k, v): len(v) > 0, rv.items()))
+        self.log.debug('Hosts with low memory returned: %s', rv)
+        return rv
+
+    def _perform_gc(self, hosts):
+        self.log.info("Running GC on the following nodes: %s", ', '.join(hosts))
+        return self.c.run_command('run_gc', hosts=hosts)
+
+    def _wait_for_free_mem(self, hosts, percentage):
+        self.log.info("Waiting for memory to become available")
+        wait_total = 0
+        while len(self._get_memory(percentage, hosts)) > 0:
+            if wait_total > self.gc_wait_time:
+                return False
+            time.sleep(self.poll_interval)
+            wait_total += self.poll_interval
+        return True
+
     def _check_memory(self):
         self.log.info("Checking that all cluster nodes have at least %s%% of free memory",
                       self.required_memory)
-        rv = self.c.run_command('check_memory', 100 - self.required_memory)
-        if False in rv.values():
-            tmp_str = ' and '.join(k for k, v in rv.items() if v == False)
-            raise TomcatError("Node(s) {0} is low on memory".format(tmp_str))
+        percentage = 100 - self.required_memory
+        mem = self._get_memory(percentage)
+        if len(mem) <= 0:
+            return True
+
+        hosts = mem.keys()
+        errstr = 'The following nodes do not have enough memory: {0}'.format(hosts)
+        self.log.info(errstr)
+        if self.auto_gc:
+            self._perform_gc(mem.keys())
+            if self._wait_for_free_mem(hosts, percentage):
+                return True
+            else:
+                self.log.error("Unable to reclaim memory by running GC")
+        # TODO: attempt to reboot nodes to reclaim memory if instructed to do so
+        self.log.error(errstr)
+        raise TomcatError(errstr)
 
     def _wait_for_apps(self, new_apps, vhost='*'):
         ctx_list = [ ctx for ctx, path, ver in new_apps.values() ]
@@ -111,6 +150,7 @@ class ClusterDeployer:
     def _deploy(self, new_apps, vhost='localhost'):
         rv = {}
         for fn, (ctx, path, ver) in new_apps.items():
+            self.log.info("Deploying context=%s,host=%s", ctx, vhost)
             rv[ctx] = self.c.run_command('deploy', fn, ctx, vhost)
         return rv
 
