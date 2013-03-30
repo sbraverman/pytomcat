@@ -13,6 +13,7 @@ class ManagerConnection:
     '''
 
     progress = None
+    upload_timeout = 900
 
     def __init__(self, host, user = 'admin', passwd = 'admin',
                  port = 8080, timeout = 10):
@@ -26,11 +27,13 @@ class ManagerConnection:
     def _cmd_url(self, command, parameters):
         return '{0}/{1}?{2}'.format(self.baseurl, command, parameters)
 
-    def _do_request(self, request, vhost):
+    def _do_request(self, request, vhost, timeout=None):
+        if timeout == None:
+            timeout = self.timeout
         request.add_header("Authorization", self.auth_header)
         request.add_header("Host", vhost)
         self.log.debug("TomcatManager request: %s", request.get_full_url())
-        result = urllib2.urlopen(request, None, self.timeout)
+        result = urllib2.urlopen(request, None, timeout)
         rv = result.read().replace('\r','')
         self.log.debug("TomcatManager response: %s", rv)
         if not rv.startswith('OK'):
@@ -46,7 +49,7 @@ class ManagerConnection:
         request = urllib2.Request(self._cmd_url(command, parameters), data)
         request.add_header('Content-Type', 'application/binary')
         request.get_method = lambda: 'PUT'
-        return self._do_request(request, vhost)
+        return self._do_request(request, vhost, self.upload_timeout)
 
     def deploy(self, filename, context, vhost='localhost'):
         params = urllib.urlencode({ 'path': context })
