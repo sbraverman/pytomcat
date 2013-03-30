@@ -115,7 +115,9 @@ class Tomcat:
         Return only active members of the cluster
         '''
         def is_active(m):
-            return m['ready'] and not m['failing'] and not m['suspect']
+            invalid_ips = [ '0.0.0.0', '255.255.255.255' ]
+            return ( m['ready'] and not m['failing'] and not m['suspect'] and
+                       m['hostname'] not in invalid_ips )
 
         m = self.cluster_members()
         return dict((k, v) for k, v in m.iteritems() if is_active(v))
