@@ -19,7 +19,7 @@ class ClusterDeployer:
     kill_sessions = False
     auto_reboot = False
 
-    def __init__(self, opts):
+    def __init__(self, **opts):
         self.log = logging.getLogger('pytomcat.deployer')
         for k, v in opts.items():
             setattr(self, k, v)

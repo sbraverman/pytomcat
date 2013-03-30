@@ -1,9 +1,13 @@
 #!/usr/bin/env python
 
 import logging
-from optparse import OptionParser
+from optparse import OptionParser, OptionGroup
 from . import Tomcat, TomcatError, TomcatCluster
 from deployer import ClusterDeployer, parse_warfiles
+
+VERSION = "1.0"
+
+conn_options = [ 'host', 'port', 'user', 'passwd' ]
 
 def setup_logging(level, module='pytomcat',
                   fmt='%(asctime)s %(levelname)s %(message)s'):
@@ -14,34 +18,98 @@ def setup_logging(level, module='pytomcat',
     log.addHandler(ch)
     log.setLevel(level)
 
-def deploy_main(args, opts):
+def create_option_parser(usage, epilog=None):
+    err_choices = [ 'ERROR', 'WARN', 'INFO', 'DEBUG' ]
+    parser = OptionParser(usage=usage, version="%prog " + VERSION,
+                          add_help_option=False, epilog=epilog)
+    parser.remove_option("--version")
+    group = OptionGroup(parser, "General Options")
+    group.add_option("-h", "--host", help="Tomcat server host",
+                     default='localhost', dest='host')
+    group.add_option("-P", "--port", help="Tomcat server port",
+                     default='8080', dest='port')
+    group.add_option("-u", "--user", help="Tomcat server username",
+                     default='admin', dest='user')
+    group.add_option("-p", "--password", help="Tomcat server password",
+                     default='admin', dest='passwd')
+    group.add_option("--loglevel", help="Log level ({0})".format(', '.join(err_choices)),
+                     type="string", action="callback", metavar='LEVEL',
+                     callback=lambda a, b, v, o: setup_logging(v))
+    group.add_option("--help", help="show this help message and exit",
+                     action="help")
+    group.add_option("--version", help="show program's version number and exit",
+                     action="version")
+    parser.add_option_group(group)
+    return parser
+
+def extract_options(keys, opts):
+    values = map(lambda x: getattr(opts, x), keys)
+    return dict(zip(keys, values))
+
+
+def list_main(argv):
+    usage = 'usage: %prog list [options] [context] [vhost]'
+    parser = create_option_parser(usage)
+    (opts, args) = parser.parse_args(argv)
+    c = TomcatCluster(opts.host, opts.user, opts.passwd, opts.port)
+    fmt = '{0:<25} {1:<15} {2:<10} {3:<12} {4:<5} {5:>8}'
+    nmemb = len(c.members)
+    print '\n', fmt.format('Context', 'Path', 'State', 'Version', 'Cohrn', 'Nodes')
+    for k, a in c.webapp_status(*args).iteritems():
+        print fmt.format(
+            k, a['path'], a['stateName'], a['webappVersion'], str(a['coherent']),
+            '{0} / {1}'.format(len(a['presentOn']), nmemb) )
+
+def deploy_main(argv):
     '''
     Deploy a webapp
     '''
-    d = ClusterDeployer(opts)
+    usage = 'usage: %prog deploy [options] WARFILE..'
+    parser = create_option_parser(usage)
+    parser.add_option("--kill-sessions", action="store_true", dest="kill_sessions",
+                      help="Kill sessions before undeploying old versions")
+
+    deployer_options = [ 'kill_sessions' ]
+
+    (opts, args) = parser.parse_args(argv)
+    d = ClusterDeployer(**extract_options(conn_options + deployer_options, opts))
     d.deploy(parse_warfiles(args))
+
+def undeploy_main(argv):
+    '''
+    Undeploy a webapp
+    '''
+    usage = 'usage: %prog undeploy [options] CONTEXT..'
+    parser = create_option_parser(usage)
+    (opts, args) = parser.parse_args(argv)
+    d = ClusterDeployer(**extract_options(conn_options, opts))
+    d.undeploy(args)
 
 def tool_main():
     from sys import argv
+    setup_logging(logging.INFO, 'pytomcat')
 
-    tools = { 'deploy': deploy_main }
+    tools = { 'deploy'  : deploy_main,
+              'undeploy': undeploy_main,
+              'list'    : list_main }
 
-    usage = 'usage: %prog [options] {0} args'.format('|'.join(tools.keys()))
-    parser = OptionParser(usage=usage)
-    parser.add_option("-H", "--host", help="Tomcat server host", default='localhost', dest='host')
-    parser.add_option("-p", "--port", help="Tomcat server port", default='8080', dest='port')
-    parser.add_option("-U", "--user", help="Tomcat server username", default='admin', dest='user')
-    parser.add_option("-P", "--password", help="Tomcat server password", default='admin', dest='password')
-    (opts, args) = parser.parse_args(argv)
-    global_options = { 'host': opts.host, 'port': opts.port, 'user': opts.user, 'passwd': opts.password }
+    usage = 'usage: %prog COMMAND [options] [args]'
+    epilog = 'Available commands: {0}'.format(' '.join(sorted(tools.keys())))
+    parser = create_option_parser(usage, epilog)
+
+    if len(argv) < 2 or argv[1] == 'help':
+        parser.print_help()
+        exit(2)
+
+    tool = argv[1]
+    if tool.startswith('-'):
+        parser.parse_args(argv)
+        parser.error('command name must be the first argument')
+
+    if tool not in tools:
+        parser.error("Unknown command '{0}'".format(tool))
+
+    tools[tool](argv[2:])
 
     #setup_logging(logging.INFO, 'pytomcat.jmxproxy')
-    setup_logging(logging.INFO, 'pytomcat')
     #setup_logging(logging.DEBUG, 'pytomcat')
-
-    tool = args[1]
-    if tool not in tools:
-        raise ValueError('Usage: tomcat-tool {0} FILE..'.format('|'.join(tools.keys())))
-
-    tools[tool](args[2:], global_options)
- 
