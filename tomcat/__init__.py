@@ -286,14 +286,18 @@ class TomcatCluster:
             raise TomcatError('{0} already exists'.format(t.host))
         members[t.host] = t
 
-    def run_command(self, command, *args):
+    def run_command(self, command, *args, **opts):
         if len(self.members) <= 0:
             raise TomcatError("Cluster has no members")
+        if 'hosts' in opts:
+            hosts = opts['hosts']
+        else:
+            hosts = self.members.keys()
         rv = {}
-        for (host, t) in self.members.iteritems():
+        for host in hosts:
             try:
                 self.log.debug("Performing %s%s on %s", command, args, host)
-                rv[host] = getattr(t, command)(*args)
+                rv[host] = getattr(self.members[host], command)(*args)
             except TomcatError as e:
                 rv[host] = e
         return rv
