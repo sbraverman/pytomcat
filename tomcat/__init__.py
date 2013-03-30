@@ -6,7 +6,10 @@ from jmxproxy import JMXProxyConnection
 from manager import ManagerConnection
 
 class Tomcat:
+    progress_callback = None
+
     def __init__(self, host, user = 'admin', passwd = 'admin', port = 8080):
+        self.log = logging.getLogger('pytomcat.Tomcat')
         self.jmx = JMXProxyConnection(host, user, passwd, port)
         self.mgr = ManagerConnection(host, user, passwd, port)
 
@@ -244,6 +247,10 @@ class Tomcat:
                               .format(app, vhost))
                 self._expire_session(mgrs[ctx]['objectName'], id)
 
+    def set_progress_callback(self, callback):
+        self.progress_callback = callback
+        self.mgr.progress_callback = callback
+
 def parse_warfile(filename):
     m = re.match('^(?P<ctx>(?P<path>.+?)(##(?P<ver>.+?))?)\\.war$',
                  '/' + os.path.basename(filename), flags=re.I)
@@ -253,6 +260,7 @@ def parse_warfile(filename):
 
 class TomcatCluster:
     members = {}
+    progress_callback = None
 
     def __init__(self, host = None, user = None, passwd = None, port = 8080):
         self.log = logging.getLogger('pytomcat.TomcatCluster')
@@ -268,11 +276,19 @@ class TomcatCluster:
                 self.log.info("Autodiscovered cluster member '%s'", h)
                 self.members[h] = Tomcat(h, self.user, self.passwd, self.port)
                 self._discover(self.members[h])
+        self.set_progress_callback(self.progress_callback)
 
     def add_member(self, t):
         if t.host in members:
             raise TomcatError('{0} already exists'.format(t.host))
         members[t.host] = t
+
+    def _run_progress_callback(self, **args):
+        if self.progress_callback != None:
+            try:
+                self.progress_callback(**args)
+            except Exception as e:
+                self.log.error('running progress callback: %s', e)
 
     def run_command(self, command, *args, **opts):
         if len(self.members) <= 0:
@@ -285,10 +301,19 @@ class TomcatCluster:
         for host in hosts:
             try:
                 self.log.debug("Performing %s%s on %s", command, args, host)
+                self._run_progress_callback(event=events.CMD_START,
+                        command=command, args=args, node=host)
                 rv[host] = getattr(self.members[host], command)(*args)
+                self._run_progress_callback(event=events.CMD_END,
+                        command=command, args=args, node=host)
             except TomcatError as e:
                 rv[host] = e
         return rv
+
+    def set_progress_callback(self, callback):
+        self.progress_callback = callback
+        for t in self.members.values():
+            t.set_progress_callback(callback)
 
     def webapp_status(self, app='*', vhost='*'):
         '''

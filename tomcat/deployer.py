@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 
 import time, logging
-from . import TomcatError, TomcatCluster, parse_warfile
+from . import *
+import events
 
 def parse_warfiles(warfiles):
     return dict((f, parse_warfile(f)) for f in warfiles)
@@ -10,7 +11,7 @@ class ClusterDeployer:
     undeploy_on_error = True
     port = 8080
     poll_interval=5
-    deploy_wait_time=10
+    deploy_wait_time=30
     gc_wait_time=30
     required_memory = 50
     check_memory = True
@@ -23,6 +24,7 @@ class ClusterDeployer:
         for k, v in opts.items():
             setattr(self, k, v)
         self.c = TomcatCluster(self.host, self.user, self.passwd, self.port)
+        self.c.set_progress_callback(self._progress_callback)
 
     def _get_webapps(self, vhost='*'):
         stats = self.c.webapp_status('*', vhost)
@@ -92,7 +94,7 @@ class ClusterDeployer:
         return self.c.run_command('run_gc', hosts=hosts)
 
     def _wait_for_free_mem(self, hosts, percentage):
-        self.log.info("Waiting for memory to become available")
+        self.log.info("Waiting %ss for memory to become available", self.gc_wait_time)
         wait_total = 0
         while len(self._get_memory(percentage, hosts)) > 0:
             if wait_total > self.gc_wait_time:
@@ -125,7 +127,8 @@ class ClusterDeployer:
     def _wait_for_apps(self, new_apps, vhost='*'):
         ctx_list = [ ctx for ctx, path, ver in new_apps.values() ]
         wait_total = 0
-        self.log.info("Waiting for webapps to become available on all nodes")
+        self.log.info("Waiting %ss for webapps to become available on all nodes",
+                      self.deploy_wait_time)
         while wait_total < self.deploy_wait_time:
             cluster_ok = True
             stats = self.c.webapp_status('*', vhost)
@@ -144,13 +147,46 @@ class ClusterDeployer:
                 break
             wait_total += self.poll_interval
             time.sleep(self.poll_interval)
-
         return failed_apps
+
+    def _progress_callback(self, **args):
+        handlers = {
+            events.UPLOAD      : self._log_upload_status,
+            events.CMD_START   : self._log_cmd_status,
+            events.CMD_END     : self._log_cmd_status
+        }
+        event = None
+        if 'event' in args:
+            event=args['event']
+        if event in handlers:
+            handlers[event](args)
+
+    def _log_upload_status(self, evnt):
+        blk_size = evnt['blocksize']
+        total = evnt['total']
+        pos = evnt['position']
+        if pos < blk_size:
+            self.log.info('Starting to upload %s to %s', evnt['filename'], evnt['url'])
+        elif pos == total:
+            self.log.info('Completed uploading %s to %s', evnt['filename'], evnt['url'])
+
+    def _log_cmd_status(self, evnt):
+        msg = { events.CMD_START: {
+                     'deploy'  : 'Attempting to deploy %s to %s',
+                     'undeploy': 'Attempting to undeploy %s from %s' },
+                 events.CMD_END: {
+                     'deploy'  : 'Successfully deployed %s to %s',
+                     'undeploy': 'Successfully undeployed %s from %s' }
+        }
+        ec = evnt['event']
+        cmd = evnt['command']
+        if ec in msg and cmd in msg[ec]:
+            self.log.info(msg[ec][cmd], evnt['args'][0], evnt['node'])
 
     def _deploy(self, new_apps, vhost='localhost'):
         rv = {}
         for fn, (ctx, path, ver) in new_apps.items():
-            self.log.info("Deploying context=%s,host=%s", ctx, vhost)
+            self.log.info("Performing a cluster-wide deploy of %s", ctx)
             rv[ctx] = self.c.run_command('deploy', fn, ctx, vhost)
         return rv
 
@@ -174,7 +210,7 @@ class ClusterDeployer:
         # TODO: Check the results for errors
         failed = self._wait_for_apps(new_apps, vhost)
         if len(failed) > 0:
-            errstr = "Deployment of %s failed".format(' and '.join(failed))
+            errstr = "Deployment of {0} failed".format(' and '.join(failed))
             self.log.error(errstr)
             if self.undeploy_on_error:
                 ctx_names = [ ctx for ctx, path, ver in new_apps.values() ]

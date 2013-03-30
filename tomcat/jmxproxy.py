@@ -17,9 +17,13 @@ class JMXProxyConnection:
 
     def _do_get(self, request):
         request = urllib2.Request('%s?%s' % (self.baseurl, request))
+        cmd_url = request.get_full_url()
         request.add_header("Authorization", self.auth_header)
-        self.log.debug("JMXProxy request: %s", request.get_full_url())
-        result = urllib2.urlopen(request, None, self.timeout)
+        self.log.debug("JMXProxy request: %s", cmd_url)
+        try:
+            result = urllib2.urlopen(request, None, self.timeout)
+        except urllib2.URLError as e:
+            raise TomcatError('Error communicating with {0}: {1}'.format(cmd_url, e))
         rv = result.read().replace('\r','')
         self.log.debug("JMXProxy response: %s", rv)
         if not rv.startswith('OK'):
