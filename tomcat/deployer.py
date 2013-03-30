@@ -165,12 +165,10 @@ class ClusterDeployer:
             handlers[event](args)
 
     def _log_upload_status(self, evnt):
-        blk_size = evnt['blocksize']
-        total = evnt['total']
-        pos = evnt['position']
-        if pos < blk_size:
+        self.log.debug("Received upload progress event: %s", evnt)
+        if evnt['position'] == 0:
             self.log.info('Starting to upload %s to %s', evnt['filename'], evnt['url'])
-        elif pos == total:
+        elif evnt['position'] == evnt['total']:
             self.log.info('Completed uploading %s to %s', evnt['filename'], evnt['url'])
 
     def _log_cmd_status(self, evnt):
