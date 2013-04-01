@@ -135,7 +135,7 @@ class Tomcat:
         rv = self.jmx.query(
                    'Catalina:j2eeType=WebModule,name=//{0}/{1},*'
                    .format(vhost, re.sub('^/', '', app)))
-        return { sanitize_name(v['name']): v for k, v in rv.iteritems() }
+        return dict((sanitize_name(v['name']),v) for k, v in rv.iteritems())
 
     def find_managers(self, app='*', vhost='*'):
         '''
@@ -149,7 +149,7 @@ class Tomcat:
         rv = self.jmx.query(
                    'Catalina:type=Manager,context={0},host={1}'
                    .format(app, vhost))
-        return { extract_context(k): v for k, v in rv.iteritems() }
+        return dict((extract_context(k),v) for k, v in rv.iteritems())
 
     def _list_session_ids(self, mgr_obj_id):
         ids = self.jmx.invoke(mgr_obj_id, 'listSessionIds')
@@ -337,9 +337,9 @@ class TomcatCluster:
             rv = {
                 'presentOn': [],
                 'coherent': True,
-                'clusterDetails': { k: {} for k in interesting_keys }
+                'clusterDetails': dict((k,{}) for k in interesting_keys)
             }
-            rv.update({ k: None for k in interesting_keys })
+            rv.update(dict((k,None) for k in interesting_keys))
             return rv
 
         def populate_interesting(stats):
