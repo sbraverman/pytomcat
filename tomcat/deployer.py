@@ -61,7 +61,7 @@ class ClusterDeployer:
             if path in all_paths:
                 if ver == None:
                     raise TomcatError(
-                        'There is already a webapp deployed to {0} on {1}'
+                        'There is already a webapp deployed to {0} ({1})'
                         .format(path, ' and '.join(paths[path])))
                 elif path not in paths:
                     raise TomcatError(
