@@ -81,14 +81,15 @@ class ClusterDeployer:
 
     def _get_memory(self, percentage, hosts=None):
         def ignore_filter(lst):
-            ignore_pools = [ 'Par Eden Space', 'Par Survivor Space' ]
+            ignore_pools = [ 'Par Eden Space', 'Par Survivor Space', 'Code Cache' ]
             return filter(lambda x: x not in ignore_pools, lst)
         if hosts != None:
             opts = { 'hosts': hosts }
         else:
             opts = {}
         rv = self.c.run_command('find_pools_over', 100 - self.required_memory, **opts)
-        rv = dict(filter(lambda (k, v): len(ignore_filter(v)) > 0, rv.items()))
+        rv = dict((k, ignore_filter(v)) for (k, v) in rv.items())
+        rv = dict(filter(lambda (k, v): len(v) > 0, rv.items()))
         self.log.debug('Hosts with low memory returned: %s', rv)
         return rv
 
@@ -115,7 +116,7 @@ class ClusterDeployer:
             return True
 
         hosts = mem.keys()
-        errstr = 'The following nodes do not have enough memory: {0}'.format(hosts)
+        errstr = 'The following nodes do not have enough memory: {0}'.format(mem)
         self.log.info(errstr)
         if self.auto_gc:
             self._perform_gc(mem.keys())
