@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import re, os, logging
+import re, os, logging, time
 from multiprocessing.pool import ThreadPool
 from error import TomcatError
 from jmxproxy import JMXProxyConnection
@@ -11,8 +11,10 @@ class Tomcat:
 
     def __init__(self, host, user = 'admin', passwd = 'admin', port = 8080):
         self.log = logging.getLogger('pytomcat.Tomcat')
+        self.name = 'Tomcat at {0}:{1}'.format(host,port)
         self.jmx = JMXProxyConnection(host, user, passwd, port)
         self.mgr = ManagerConnection(host, user, passwd, port)
+        self.restarter = self._find_restarter()
 
     def memory_info(self):
         '''
@@ -84,6 +86,64 @@ class Tomcat:
         Return true if this instance of Tomcat is member of a cluster
         '''
         return len(self.jmx.query('Catalina:type=Cluster')) > 0
+
+    def server_status(self):
+        '''
+        Return the state name of the Tomcat server component.
+
+        >>> t.server_status()
+        'STARTED'
+
+        See Also:
+        http://tomcat.apache.org/tomcat-7.0-doc/api/org/apache/catalina/Lifecycle.html
+        http://tomcat.apache.org/tomcat-7.0-doc/api/org/apache/catalina/LifecycleState.html
+        '''
+        return self.jmx.get('Catalina:type=Server', 'stateName')
+
+    def _find_restarter(self):
+        restarters = [ _JSWRestarter(self) ]
+        self.restarter = None
+        for r in restarters:
+            if r.detect():
+                return r
+        return None
+
+    def can_restart(self):
+        '''
+        Return true is this instance of Tomcat can be restarted remotely.
+        This will only work if Tomcat is launched by a supported wrapper
+        which exposes this functionality via JMX.
+        e.g. Java Service Wrapper http://wrapper.tanukisoftware.com
+        Support for YAJSW is planned, but not implemented
+
+        >>> t.can_restart()
+        True
+        '''
+        return self.restarter != None
+
+    def restart(self, timeout=600):
+        '''
+        Restart this instance of Tomcat.
+        Restarting will only work if Tomcat is launched by a supported wrapper
+        which exposes restarting functionality via JMX.
+
+        >>> t.restart()
+        '''
+        def started():
+            try:
+                return self.server_status() == 'STARTED'
+            except: 
+                return False
+        if not self.can_restart():
+            raise TomcatError('{0} does not support remote restarting'
+                              .format(self.name))
+        self.restarter.restart()
+        if not wait_until(lambda: not started(), timeout):
+            raise TomcatError('Timed out waiting for {0} to shut down'
+                              .format(self.name))
+        if not wait_until(started, timeout):
+            raise TomcatError('Timed out waiting for {0} to boot up'
+                              .format(self.name))
 
     def cluster_name(self):
         '''
@@ -252,12 +312,39 @@ class Tomcat:
         self.progress_callback = callback
         self.mgr.progress_callback = callback
 
+class _JSWRestarter:
+     name = 'org.tanukisoftware.wrapper:type=WrapperManager'
+     def __init__(self, tomcat):
+         self.jmx = tomcat.jmx
+         self.log = logging.getLogger('pytomcat._JSWRebooter')
+
+     def detect(self):
+         try:
+             rv = self.jmx.get(self.name, 'ControlledByNativeWrapper')
+             self.log.debug("Tanuki Java Service Wrapper detected")
+             if not rv:
+                 self.log.warn("JSW not controlled by Native Wrapper, restarting disabled")
+             return rv
+         except:
+             return False
+
+     def restart(self):
+         self.log.debug("Requesting a restart from Java Service Wrapper")
+         return self.jmx.invoke(self.name, 'restart')
+
 def parse_warfile(filename):
     m = re.match('^(?P<ctx>(?P<path>.+?)(##(?P<ver>.+?))?)\\.war$',
                  '/' + os.path.basename(filename), flags=re.I)
     if m == None:
         raise TomcatError("Invalid WAR file name: '{0}'".format(filename))
     return ( m.group('ctx'), m.group('path'), m.group('ver') )
+
+def wait_until(predicate, timeout, poll_interval=5):
+    end_time = time.time() + timeout
+    while time.time() < end_time:
+        if predicate(): return True
+        time.sleep(poll_interval)
+    return False
 
 class TomcatCluster:
     max_threads = 20

@@ -1,12 +1,15 @@
 #!/usr/bin/env python
 
-import re
+import re,logging
 from tomcat import Tomcat,TomcatCluster
 
 def main():
+    logging.basicConfig(level=logging.INFO)
     t = Tomcat('localhost', 'admin', 'admin')
 
+    print 'Server status: {0}'.format(t.server_status())
     print 'Number of Threads: {0}'.format(len(t.dump_all_threads()))
+    print 'Remote restarting: {0}'.format(t.can_restart())
     has_cluster = t.has_cluster()
     print 'Cluster: {0}'.format(has_cluster)
     if has_cluster:
