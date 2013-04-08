@@ -101,7 +101,7 @@ class Tomcat:
         return self.jmx.get('Catalina:type=Server', 'stateName')
 
     def _find_restarter(self):
-        restarters = [ _JSWRestarter(self) ]
+        restarters = [ _JSWRestarter(self), _YAJSWRestarter(self) ]
         self.restarter = None
         for r in restarters:
             if r.detect():
@@ -113,8 +113,8 @@ class Tomcat:
         Return true is this instance of Tomcat can be restarted remotely.
         This will only work if Tomcat is launched by a supported wrapper
         which exposes this functionality via JMX.
-        e.g. Java Service Wrapper http://wrapper.tanukisoftware.com
-        Support for YAJSW is planned, but not implemented
+        e.g. Java Service Wrapper http://wrapper.tanukisoftware.com or
+        Yet Another Java Service Wrapper http://yajsw.sourceforge.net/
 
         >>> t.can_restart()
         True
@@ -330,6 +330,26 @@ class _JSWRestarter:
 
      def restart(self):
          self.log.debug("Requesting a restart from Java Service Wrapper")
+         return self.jmx.invoke(self.name, 'restart')
+
+class _YAJSWRestarter:
+     def __init__(self, tomcat):
+         self.jmx = tomcat.jmx
+         self.log = logging.getLogger('pytomcat._YAJSWRebooter')
+
+     def detect(self):
+         beans = self.jmx.query('Wrapper:name=*').keys()
+         if len(beans) <= 0:
+             return False
+         if len(beans) > 1:
+             self.log.warn("Found more than one YAJSW MBean %s", beans)
+         self.name = beans.pop()
+         rv = self.jmx.get(self.name, 'ControlledByWrapper')
+         if not rv:
+             self.log.warn("YAJSW not controlled by Wrapper, restarting disabled")
+         return rv
+     def restart(self):
+         self.log.debug("Requesting a restart from YAJSW")
          return self.jmx.invoke(self.name, 'restart')
 
 def parse_warfile(filename):
