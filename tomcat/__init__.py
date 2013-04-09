@@ -14,7 +14,6 @@ class Tomcat:
         self.name = 'Tomcat at {0}:{1}'.format(host,port)
         self.jmx = JMXProxyConnection(host, user, passwd, port)
         self.mgr = ManagerConnection(host, user, passwd, port)
-        self.restarter = self._find_restarter()
 
     def memory_info(self):
         '''
@@ -100,9 +99,16 @@ class Tomcat:
         '''
         return self.jmx.get('Catalina:type=Server', 'stateName')
 
+    @property
+    def _restarter(self):
+        try:
+            return self._restarter_obj
+        except AttributeError:
+            self._restarter_obj = self._find_restarter()
+            return self._restarter_obj
+
     def _find_restarter(self):
         restarters = [ _JSWRestarter(self), _YAJSWRestarter(self) ]
-        self.restarter = None
         for r in restarters:
             if r.detect():
                 return r
@@ -119,7 +125,7 @@ class Tomcat:
         >>> t.can_restart()
         True
         '''
-        return self.restarter != None
+        return self._restarter != None
 
     def restart(self, timeout=600):
         '''
@@ -137,7 +143,7 @@ class Tomcat:
         if not self.can_restart():
             raise TomcatError('{0} does not support remote restarting'
                               .format(self.name))
-        self.restarter.restart()
+        self._restarter.restart()
         if not wait_until(lambda: not started(), timeout):
             raise TomcatError('Timed out waiting for {0} to shut down'
                               .format(self.name))
