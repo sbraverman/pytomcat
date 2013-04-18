@@ -41,9 +41,9 @@ class ClusterDeployer:
         if self.kill_sessions:
             for app in apps:
                 self.log.info('Forcefully expiring sessions for %s', app)
-                self.c.run_command('expire_sessions', app, vhost)
+                self.c.run_command('expire_sessions', app, vhost) # TODO: report errors
         self.log.info('Attempting to undeploy old versions across the cluster')
-        self.c.run_command('undeploy_old_versions', vhost)
+        self.c.run_command('undeploy_old_versions', vhost) # TODO: report errors
         (stats, paths, all_paths) = self._get_webapps(vhost)
         if len(paths[path]) > 1:
             raise TomcatError(
@@ -68,16 +68,15 @@ class ClusterDeployer:
                         'Webapp {0} is deployed only to a subset of nodes ({1})'
                         .format(path, ' and '.join(paths[path])))
                 else:
-                    if len(paths[path]) > 1:
-                        # Tomcat uses a simple sorted list of strings to determine
-                        # which version is the latest
-                        latest = sorted([ ctx ] + paths[path])[-1]
-                        if ctx != latest:
-                            raise TomcatError(
-                                'There is a webapp {0} deployed to {1} that is newer than {2}'
-                                .format(latest, path, ctx))
-                        oldapps = sorted(paths[path])[:-1]
-                        self._undeploy_old_versions(path, oldapps, vhost)
+                    # Tomcat uses a simple sorted list of strings to determine
+                    # which version is the latest
+                    latest = sorted([ ctx ] + paths[path])[-1]
+                    if ctx != latest:
+                        raise TomcatError(
+                            'There is a webapp {0} deployed to {1} that is newer than {2}'
+                            .format(latest, path, ctx))
+                    oldapps = sorted(paths[path])[:-1]
+                    self._undeploy_old_versions(path, oldapps, vhost)
 
     def _get_memory(self, percentage, hosts=None):
         def ignore_filter(lst):
@@ -87,7 +86,9 @@ class ClusterDeployer:
             opts = { 'hosts': hosts }
         else:
             opts = {}
-        rv = self.c.run_command('find_pools_over', 100 - self.required_memory, **opts)
+        rv = self.c.run_command('find_pools_over',
+                                100 - self.required_memory, **opts).results
+        # TODO: report errors
         rv = dict((k, ignore_filter(v)) for (k, v) in rv.items())
         rv = dict(filter(lambda (k, v): len(v) > 0, rv.items()))
         self.log.debug('Hosts with low memory returned: %s', rv)
@@ -119,7 +120,7 @@ class ClusterDeployer:
         errstr = 'The following nodes do not have enough memory: {0}'.format(mem)
         self.log.info(errstr)
         if self.auto_gc:
-            self._perform_gc(mem.keys())
+            self._perform_gc(mem.keys()) # TODO: report errors
             if self._wait_for_free_mem(hosts, percentage):
                 return True
             else:
@@ -177,8 +178,8 @@ class ClusterDeployer:
                      'deploy'  : 'Attempting to deploy %s to %s',
                      'undeploy': 'Attempting to undeploy %s from %s' },
                  events.CMD_END: {
-                     'deploy'  : 'Successfully deployed %s to %s',
-                     'undeploy': 'Successfully undeployed %s from %s' }
+                     'deploy'  : 'Finished deploying %s to %s',
+                     'undeploy': 'Finished undeploying %s from %s' }
         }
         ec = evnt['event']
         cmd = evnt['command']
@@ -186,11 +187,15 @@ class ClusterDeployer:
             self.log.info(msg[ec][cmd], evnt['args'][0], evnt['node'])
 
     def _deploy(self, new_apps, vhost='localhost'):
-        rv = {}
+        failed_apps = []
         for fn, (ctx, path, ver) in new_apps.items():
             self.log.info("Performing a cluster-wide deploy of %s", ctx)
-            rv[ctx] = self.c.run_command('deploy', fn, ctx, vhost)
-        return rv
+            rv = self.c.run_command('deploy', fn, ctx, vhost)
+            if rv.has_failures:
+                self.log.error("Failed to deploy %s to the following nodes: %s",
+                               ctx, rv.failures)
+                failed_apps.append(ctx)
+        return failed_apps
 
     def deploy(self, new_apps, vhost='localhost'):
         '''
@@ -204,20 +209,21 @@ class ClusterDeployer:
         >>> from tomcat.deployer import parse_warfiles
         >>> d.deploy(parse_warfiles([ '/tmp/test.war' ]))
         '''
-        self._clean_old_apps(new_apps, vhost)
-        if self.check_memory:
-            self._check_memory()
-        rv = self._deploy(new_apps, vhost)
-        self.log.debug("Deployment results %s", rv)
-        # TODO: Check the results for errors
-        failed = self._wait_for_apps(new_apps, vhost)
-        if len(failed) > 0:
+        def handle_failure(failed):
+            if len(failed) <= 0:
+                return
             errstr = "Deployment of {0} failed".format(' and '.join(failed))
             self.log.error(errstr)
             if self.undeploy_on_error:
                 ctx_names = [ ctx for ctx, path, ver in new_apps.values() ]
                 rv = self.undeploy(ctx_names, vhost)
             raise TomcatError(errstr)
+
+        self._clean_old_apps(new_apps, vhost)
+        if self.check_memory:
+            self._check_memory()
+        handle_failure(self._deploy(new_apps, vhost))
+        handle_failure(self._wait_for_apps(new_apps, vhost))
 
     def undeploy(self, context_names, vhost='localhost'):
         '''
@@ -228,6 +234,6 @@ class ClusterDeployer:
         rv = {}
         for ctx in context_names:
             self.log.info("Performing a cluster-wide undeploy of %s", ctx)
-            rv[ctx] = self.c.run_command('undeploy', ctx, vhost)
+            rv[ctx] = self.c.run_command('undeploy', ctx, vhost) # TODO: report errors
         return rv
 

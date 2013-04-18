@@ -430,7 +430,7 @@ class TomcatCluster:
                       min(self.member_count(), self.max_threads))
         pool = ThreadPool(processes=threads)
 
-        return dict(pool.map(run_cmd, hosts))
+        return ClusterCommandResults(pool.map(run_cmd, hosts))
 
     def set_progress_callback(self, callback):
         self.progress_callback = callback
@@ -469,7 +469,8 @@ class TomcatCluster:
                 else:
                     stats['coherent'] = False
 
-        apps = self.run_command('list_webapps', app, vhost)
+        # TODO: report failed commands
+        apps = self.run_command('list_webapps', app, vhost).results
         all_keys = set.union(*map(set, apps.values()))
         rv = {}
         for app in all_keys:
@@ -484,4 +485,39 @@ class TomcatCluster:
             rv[app] = stats
 
         return rv
+
+class ClusterCommandResults:
+    '''
+    Encapsulates the results of a cluster-wide command
+    '''
+    def __init__(self, rv):
+        def success((k,v)):
+            return not isinstance(v, Exception)
+        self._failed = filter(lambda x: not success(x), rv)
+        self._succeeded = filter(success, rv)
+
+    @property
+    def has_failures(self):
+        return len(self._failed) > 0
+
+    @property
+    def results(self):
+        '''
+        Returns a dict of successful results
+        '''
+        return dict(self._succeeded)
+
+    @property
+    def failures(self):
+        '''
+        Returns a dict of failures
+        '''
+        return dict(self._failed)
+
+    @property
+    def all_results(self):
+        '''
+        Returns a dict of all results
+        '''
+        return dict(self._succeeded + self._failed)
 
