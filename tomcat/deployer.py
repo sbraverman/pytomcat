@@ -17,7 +17,7 @@ class ClusterDeployer:
     check_memory = True
     auto_gc = True
     kill_sessions = False
-    auto_reboot = False
+    auto_restart = False
     restart_fraction = 0.33
 
     def __init__(self, **opts):
@@ -118,17 +118,28 @@ class ClusterDeployer:
             return True
 
         hosts = mem.keys()
-        errstr = 'The following nodes do not have enough memory: {0}'.format(mem)
-        self.log.info(errstr)
+        errstr = 'The following nodes do not have enough memory: %s'
+        self.log.info(errstr, mem)
+
         if self.auto_gc:
             self._perform_gc(mem.keys()) # TODO: report errors
             if self._wait_for_free_mem(hosts, percentage):
                 return True
             else:
-                self.log.error("Unable to reclaim memory by running GC")
-        # TODO: attempt to reboot nodes to reclaim memory if instructed to do so
-        self.log.error(errstr)
-        raise TomcatError(errstr)
+                self.log.info("Unable to reclaim memory by running GC")
+
+        if self.auto_restart:
+            mem = self._get_memory(percentage)
+            self.log.info("Rebooting to reclaim memory: %s", mem.keys())
+            self.restart(mem.keys())
+            mem = self._get_memory(percentage)
+            if len(mem) <= 0:
+                return True
+            else:
+                self.log.info("Unable to reclaim memory by rebooting")
+
+        self.log.error(errstr, mem)
+        raise TomcatError(errstr % mem)
 
     def _wait_for_apps(self, new_apps, vhost='*'):
         ctx_list = [ ctx for ctx, path, ver in new_apps.values() ]

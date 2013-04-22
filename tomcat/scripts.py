@@ -43,8 +43,9 @@ def create_option_parser(usage, epilog=None):
     return parser
 
 def add_restart_options(parser):
-    parser.add_option("--restart-fraction", default=0.33, dest="restart_fraction",
+    parser.add_option("--restart-fraction", default=0.33, type="float", dest="restart_fraction",
                       help="Fraction of the cluster nodes rebooted at the same time (e.g. 0.33)")
+    return [ 'restart_fraction' ]
 
 def extract_options(keys, opts):
     values = map(lambda x: getattr(opts, x), keys)
@@ -72,9 +73,18 @@ def deploy_main(argv):
     parser = create_option_parser(usage)
     parser.add_option("--kill-sessions", action="store_true", dest="kill_sessions",
                       help="Kill sessions before undeploying old versions")
-    add_restart_options(parser)
-
-    deployer_options = [ 'kill_sessions' ]
+    parser.add_option("--no-check-memory", action="store_false", dest="check_memory",
+                      default=True, help="Do not check available memory on server(s)")
+    parser.add_option("--required-memory", default=50, type="int", dest="required_memory",
+                      help="Percentage of free memory required (e.g. 50)")
+    parser.add_option("--no-auto-gc", action="store_false", dest="auto_gc", default=True,
+                      help="Do not trigger GC on server(s) to reclaim memory")
+    parser.add_option("--auto-restart", action="store_true", dest="auto_restart",
+                      help="Automatically restart application server(s) on low memory")
+    restart_options = add_restart_options(parser)
+    deployer_options = restart_options + [
+        'kill_sessions', 'check_memory', 'required_memory', 'auto_gc',
+        'auto_restart' ]
 
     (opts, args) = parser.parse_args(argv)
     d = ClusterDeployer(**extract_options(conn_options + deployer_options, opts))
@@ -97,9 +107,9 @@ def restart_main(argv):
     '''
     usage = 'usage: %prog restart [options] [HOST..]'
     parser = create_option_parser(usage)
-    add_restart_options(parser)
+    restart_options = add_restart_options(parser)
     (opts, args) = parser.parse_args(argv)
-    d = ClusterDeployer(**extract_options(conn_options, opts))
+    d = ClusterDeployer(**extract_options(conn_options + restart_options, opts))
     d.restart(args)
 
 def tool_main():
