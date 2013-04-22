@@ -42,6 +42,10 @@ def create_option_parser(usage, epilog=None):
     parser.add_option_group(group)
     return parser
 
+def add_restart_options(parser):
+    parser.add_option("--restart-fraction", default=0.33, dest="restart_fraction",
+                      help="Fraction of the cluster nodes rebooted at the same time (e.g. 0.33)")
+
 def extract_options(keys, opts):
     values = map(lambda x: getattr(opts, x), keys)
     return dict(zip(keys, values))
@@ -68,6 +72,7 @@ def deploy_main(argv):
     parser = create_option_parser(usage)
     parser.add_option("--kill-sessions", action="store_true", dest="kill_sessions",
                       help="Kill sessions before undeploying old versions")
+    add_restart_options(parser)
 
     deployer_options = [ 'kill_sessions' ]
 
@@ -85,12 +90,25 @@ def undeploy_main(argv):
     d = ClusterDeployer(**extract_options(conn_options, opts))
     d.undeploy(args)
 
+def restart_main(argv):
+    '''
+    Restart Tomcat on specified hosts
+    For a cluster, the restart is performed in a rolling fashion
+    '''
+    usage = 'usage: %prog restart [options] [HOST..]'
+    parser = create_option_parser(usage)
+    add_restart_options(parser)
+    (opts, args) = parser.parse_args(argv)
+    d = ClusterDeployer(**extract_options(conn_options, opts))
+    d.restart(args)
+
 def tool_main():
     from sys import argv
     setup_logging(logging.INFO, 'pytomcat')
 
     tools = { 'deploy'  : deploy_main,
               'undeploy': undeploy_main,
+              'restart' : restart_main,
               'list'    : list_main }
 
     usage = 'usage: %prog COMMAND [options] [args]'

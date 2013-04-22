@@ -2,6 +2,7 @@
 
 import re, os, logging, time
 from multiprocessing.pool import ThreadPool
+from multiprocessing.sharedctypes import Value
 from error import TomcatError
 from jmxproxy import JMXProxyConnection
 from manager import ManagerConnection
@@ -164,16 +165,18 @@ class Tomcat:
         >>> map(lambda x: x['hostname'], t.cluster_members().values())
         ['192.168.56.101', '192.168.56.102', '192.168.56.103']
         '''
-        return self.jmx.query('Catalina:type=Cluster,component=Member,*')
+        invalid_ips = [ '0.0.0.0', '255.255.255.255' ]
+        def is_valid(m):
+            return ( m['hostname'] not in invalid_ips )
+        m = self.jmx.query('Catalina:type=Cluster,component=Member,*')
+        return dict((k, v) for k, v in m.iteritems() if is_valid(v))
 
     def active_members(self):
         '''
         Return only active members of the cluster
         '''
         def is_active(m):
-            invalid_ips = [ '0.0.0.0', '255.255.255.255' ]
-            return ( m['ready'] and not m['failing'] and not m['suspect'] and
-                       m['hostname'] not in invalid_ips )
+            return ( m['ready'] and not m['failing'] and not m['suspect'] )
 
         m = self.cluster_members()
         return dict((k, v) for k, v in m.iteritems() if is_active(v))
@@ -411,8 +414,17 @@ class TomcatCluster:
     def run_command(self, command, *args, **opts):
         if len(self.members) <= 0:
             raise TomcatError("Cluster has no members")
+        hosts = opts.setdefault('hosts', self.members.keys())
+        threads = opts.setdefault('threads',
+                      min(self.member_count(), self.max_threads))
+        abort_on_error = opts.setdefault('abort_on_error', False)
+        if abort_on_error:
+            abort = Value('b', 0)
+
         def run_cmd(host):
             try:
+                if abort_on_error and abort.value:
+                    raise TomcatError('Aborted')
                 self.log.debug("Performing %s%s on %s", command, args, host)
                 self._run_progress_callback(event=events.CMD_START,
                         command=command, args=args, node=host)
@@ -422,14 +434,12 @@ class TomcatCluster:
                 self._run_progress_callback(event=events.CMD_END,
                         command=command, args=args, node=host)
             except TomcatError as e:
+                if abort_on_error:
+                    abort.value = True
                 rv = e
             return (host, rv)
 
-        hosts = opts.setdefault('hosts', self.members.keys())
-        threads = opts.setdefault('threads',
-                      min(self.member_count(), self.max_threads))
         pool = ThreadPool(processes=threads)
-
         return ClusterCommandResults(pool.map(run_cmd, hosts))
 
     def set_progress_callback(self, callback):

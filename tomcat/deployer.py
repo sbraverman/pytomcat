@@ -18,6 +18,7 @@ class ClusterDeployer:
     auto_gc = True
     kill_sessions = False
     auto_reboot = False
+    restart_fraction = 0.33
 
     def __init__(self, **opts):
         self.log = logging.getLogger('pytomcat.deployer')
@@ -175,16 +176,22 @@ class ClusterDeployer:
 
     def _log_cmd_status(self, evnt):
         msg = { events.CMD_START: {
-                     'deploy'  : 'Attempting to deploy %s to %s',
-                     'undeploy': 'Attempting to undeploy %s from %s' },
+                     'restart' : 'Attempting to restart %(node)s',
+                     'deploy'  : 'Attempting to deploy %(0)s to %(node)s',
+                     'undeploy': 'Attempting to undeploy %(0)s from %(node)s' },
                  events.CMD_END: {
-                     'deploy'  : 'Finished deploying %s to %s',
-                     'undeploy': 'Finished undeploying %s from %s' }
+                     'restart' : 'Finished restarting %(node)s',
+                     'deploy'  : 'Finished deploying %(0)s to %(node)s',
+                     'undeploy': 'Finished undeploying %(0)s from %(node)s' }
         }
         ec = evnt['event']
         cmd = evnt['command']
         if ec in msg and cmd in msg[ec]:
-            self.log.info(msg[ec][cmd], evnt['args'][0], evnt['node'])
+            args = evnt['args']
+            m = { 'node': evnt['node'], 'args': args }
+            for i in xrange(0, len(args)):
+                m[str(i)] = args[i]
+            self.log.info(msg[ec][cmd], m)
 
     def _deploy(self, new_apps, vhost='localhost'):
         failed_apps = []
@@ -237,3 +244,20 @@ class ClusterDeployer:
             rv[ctx] = self.c.run_command('undeploy', ctx, vhost) # TODO: report errors
         return rv
 
+    def restart(self, hosts=None):
+        '''
+        Perform a safe rolling restart of the specified cluster nodes.
+
+        >>> d.restart()
+        '''
+        threads = int(round(self.c.member_count() * self.restart_fraction))
+        if threads < 1:
+            raise TomcatError(
+                "Unable to restart {0}% of the nodes in a {1} node cluster"
+                .format(self.restart_fraction * 100, self.c.member_count()))
+        self.log.debug("Restarting %d nodes at once", threads)
+        opts = { 'abort_on_error': True, 'threads': threads }
+        if len(hosts) > 0:
+            opts['hosts'] = hosts
+
+        print self.c.run_command('restart', **opts).all_results
