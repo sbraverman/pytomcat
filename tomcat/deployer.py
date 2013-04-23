@@ -271,5 +271,5 @@ class ClusterDeployer:
         opts = { 'abort_on_error': True, 'threads': threads }
         if len(hosts) > 0:
             opts['hosts'] = hosts
-
-        print self.c.run_command('restart', **opts).all_results
+        rv = self.c.run_command('restart', **opts)
+        # TODO: raise Error
