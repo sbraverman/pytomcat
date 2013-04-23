@@ -54,6 +54,7 @@ class ClusterDeployer:
 
     def _clean_old_apps(self, new_apps, vhost='*'):
         (stats, paths, all_paths) = self._get_webapps(vhost)
+        oldapps = []
         for ctx, path, ver in new_apps.values():
             if ctx in stats:
                 raise TomcatError(
@@ -76,8 +77,8 @@ class ClusterDeployer:
                         raise TomcatError(
                             'There is a webapp {0} deployed to {1} that is newer than {2}'
                             .format(latest, path, ctx))
-                    oldapps = sorted(paths[path])[:-1]
-                    self._undeploy_old_versions(path, oldapps, vhost)
+                    oldapps += sorted(paths[path])[:-1]
+        self._undeploy_old_versions(path, oldapps, vhost)
 
     def _get_memory(self, percentage, hosts=None):
         def ignore_filter(lst):
