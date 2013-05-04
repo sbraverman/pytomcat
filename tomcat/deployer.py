@@ -12,7 +12,7 @@ class ClusterDeployer:
     port = 8080
     poll_interval = 5
     deploy_wait_time = 30
-    gc_wait_time = 30
+    gc_wait_time = 10
     required_memory = 50
     check_memory = True
     auto_gc = True
@@ -46,7 +46,7 @@ class ClusterDeployer:
         self.log.info('Attempting to undeploy old versions across the cluster')
         self.c.run_command('undeploy_old_versions', vhost) # TODO: report errors
         (stats, paths, all_paths) = self._get_webapps(vhost)
-        if len(paths[path]) > 1:
+        if path in paths and len(paths[path]) > 1:
             raise TomcatError(
                       "Path '{0}' is served by more than one version ({1})"
                       .format(path, ' and '.join(paths[path])))
