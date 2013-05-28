@@ -379,6 +379,7 @@ class TomcatCluster:
     max_threads = 20
     members = {}
     progress_callback = None
+    active_only = False
 
     def __init__(self, host = None, user = None, passwd = None, port = 8080):
         self.log = logging.getLogger('pytomcat.TomcatCluster')
@@ -389,7 +390,11 @@ class TomcatCluster:
             self._discover(Tomcat(host, user, passwd, port))
 
     def _discover(self, t):
-        for h in map(lambda x: x['hostname'], t.active_members().values()):
+        if self.active_only:
+            members = t.active_members().values()
+        else:
+            members = t.cluster_members().values()
+        for h in map(lambda x: x['hostname'], members):
             if not h in self.members:
                 self.log.info("Autodiscovered cluster member '%s'", h)
                 self.members[h] = Tomcat(h, self.user, self.passwd, self.port)
