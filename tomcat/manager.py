@@ -37,7 +37,7 @@ class ManagerConnection:
         self.log.debug("TomcatManager request: %s", cmd_url)
         try:
             result = urllib2.urlopen(request, None, timeout)
-        except urllib2.URLError as e:
+        except Exception as e:
             raise TomcatError('Error communicating with {0}: {1}'.format(cmd_url, e))
         rv = result.read().replace('\r','')
         self.log.debug("TomcatManager response: %s", rv)

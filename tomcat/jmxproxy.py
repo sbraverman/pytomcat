@@ -22,7 +22,7 @@ class JMXProxyConnection:
         self.log.debug("JMXProxy request: %s", cmd_url)
         try:
             result = urllib2.urlopen(request, None, self.timeout)
-        except urllib2.URLError as e:
+        except Exception as e:
             raise TomcatError('Error communicating with {0}: {1}'.format(cmd_url, e))
         rv = result.read().replace('\r','')
         self.log.debug("JMXProxy response: %s", rv)

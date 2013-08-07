@@ -438,7 +438,7 @@ class TomcatCluster:
 
                 self._run_progress_callback(event=events.CMD_END,
                         command=command, args=args, node=host)
-            except TomcatError as e:
+            except Exception as e:
                 if abort_on_error:
                     abort.value = True
                 rv = e
