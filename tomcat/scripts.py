@@ -51,7 +51,6 @@ def extract_options(keys, opts):
     values = map(lambda x: getattr(opts, x), keys)
     return dict(zip(keys, values))
 
-
 def list_main(argv):
     usage = 'usage: %prog list [options] [context] [vhost]'
     parser = create_option_parser(usage)
@@ -112,14 +111,27 @@ def restart_main(argv):
     d = ClusterDeployer(**extract_options(conn_options + restart_options, opts))
     d.restart(args)
 
+def rollback_main(argv):
+    """
+    Rollback web app to previously deployed build with checks to ensure each cluster member will have a build to run
+      after the rollback. After the rollback is performed, there should be no users with active sessions on the build
+      that was rolled back.
+    """
+    usage = 'usage: %prog rollback [options] CTX..'
+    parser = create_option_parser(usage)
+    (opts, args) = parser.parse_args(argv)
+    d = ClusterDeployer(**extract_options(conn_options, opts))
+    d.rollback(args)
+
 def tool_main():
     from sys import argv
     setup_logging(logging.INFO, 'pytomcat')
 
-    tools = { 'deploy'  : deploy_main,
-              'undeploy': undeploy_main,
-              'restart' : restart_main,
-              'list'    : list_main }
+    tools = { 'deploy'   : deploy_main,
+              'undeploy' : undeploy_main,
+              'restart'  : restart_main,
+              'list'     : list_main,
+              'rollback' : rollback_main }
 
     usage = 'usage: %prog COMMAND [options] [args]'
     epilog = 'Available commands: {0}'.format(' '.join(sorted(tools.keys())))
