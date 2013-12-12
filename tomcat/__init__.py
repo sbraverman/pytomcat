@@ -451,8 +451,8 @@ class TomcatCluster:
         self.progress_callback = callback
         for t in self.members.values():
             t.set_progress_callback(callback)
-
-    def webapp_status(self, app='*', vhost='*'):
+    
+    def webapp_status(self, latest=False, app='*', vhost='*'):
         '''
         Perform a cluster-wide discovery to find webapps that match the filter.
 
@@ -460,6 +460,7 @@ class TomcatCluster:
         {'/manager': {'coherent': True, 'stateName': 'STARTED', 'presentOn': ['10.1.6.1'], ... }}
         '''
         interesting_keys = [ 'stateName', 'path', 'webappVersion' ]
+        app_versions = []
 
         def new_stats():
             rv = {
@@ -474,6 +475,8 @@ class TomcatCluster:
             for key in interesting_keys:
                 cd = stats['clusterDetails']
                 cd[key].update({ host: v[app][key] })
+                if key == 'webappVersion' and v[app][key] is not None:
+                    app_versions.append(v[app][key])
 
         def consolidate_interesting(stats):
             for key in interesting_keys:
@@ -483,6 +486,12 @@ class TomcatCluster:
                     stats[key] = unique.pop()
                 else:
                     stats['coherent'] = False
+
+        def remove_old_version():
+            app_versions.sort(reverse=True)
+            for k, a in rv.items():
+                if a['webappVersion'] != app_versions[0]:
+                    del rv[k]
 
         # TODO: report failed commands
         apps = self.run_command('list_webapps', app, vhost).results
@@ -498,7 +507,8 @@ class TomcatCluster:
             if len(stats['presentOn']) != len(self.members):
                 stats['coherent'] = False
             rv[app] = stats
-
+        if latest is True:
+            remove_old_version()
         return rv
 
 class ClusterCommandResults:
