@@ -54,12 +54,14 @@ def extract_options(keys, opts):
 def list_main(argv):
     usage = 'usage: %prog list [options] [context] [vhost]'
     parser = create_option_parser(usage)
+    parser.add_option("--latest-only", action="store_true", dest="latest", 
+                      default="False", help="Return the most recent version number for the webapps on the server")
     (opts, args) = parser.parse_args(argv)
     c = TomcatCluster(opts.host, opts.user, opts.passwd, opts.port)
     fmt = '{0:<25} {1:<15} {2:<10} {3:<12} {4:<5} {5:>8}'
     nmemb = len(c.members)
     print '\n', fmt.format('Context', 'Path', 'State', 'Version', 'Cohrn', 'Nodes')
-    for k, a in c.webapp_status(*args).iteritems():
+    for k, a in c.webapp_status(latest=opts.latest, *args).iteritems():
         print fmt.format(
             k, a['path'], a['stateName'], a['webappVersion'], str(a['coherent']),
             '{0} / {1}'.format(len(a['presentOn']), nmemb) )
