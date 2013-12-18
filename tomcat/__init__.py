@@ -452,7 +452,7 @@ class TomcatCluster:
         for t in self.members.values():
             t.set_progress_callback(callback)
     
-    def webapp_status(self, latest=False, app='*', vhost='*'):
+    def webapp_status(self, app='*', vhost='*', latest=False):
         '''
         Perform a cluster-wide discovery to find webapps that match the filter.
 
