@@ -123,6 +123,7 @@ def rollback_main(argv):
     parser = create_option_parser(usage)
     (opts, args) = parser.parse_args(argv)
     d = ClusterDeployer(**extract_options(conn_options, opts))
+    # TODO: Report results
     d.rollback(args)
 
 def tool_main():

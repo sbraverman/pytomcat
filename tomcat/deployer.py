@@ -274,47 +274,29 @@ class ClusterDeployer:
         rv = self.c.run_command('restart', **opts)
         # TODO: raise Error
 
-    def _two_version_check(self, app_dict, app):
-        two_versions = False
-        version_count = 0
-        for k, v in app_dict.iteritems():
-            if v['path'] == app:
-                version_count += 1
-            if version_count == 2:
-                two_versions = True
-                break
-        return two_versions
-
-    def _get_rollback_context(self, app, versions):
-        if len(versions) > 1:
-            versions.sort()
-            return "{0}##{1}".format(app, versions[-1])
-
-    def _versions_to_rollback(self, app_dict, apps):
-        rollbacks = []
-        for app in apps:
-            versions = []
-            for k, v in app_dict.iteritems():
-                if k.find('##') > -1:
-                    (dict_app, version) = k.split('##')
-                    if dict_app == app:
-                        versions.append(version)
-
-            rollbacks.append(self._get_rollback_context(app, versions))
-        return rollbacks
-
-
-    def rollback(self, args):
+    def rollback(self, paths):
         """
         Remove the highest version of the specified web app(s) (roll the app back).
 
         >>> d.rollback(['/app1', '/app2', '/app3'])
         """
-        #I was considering making app_dict a member of this class, as it is passed into two other methods. Bad idea?
-        # -- MV
-        app_dict = self.c.webapp_status()
-        for arg in args:
-            if not self._two_version_check(app_dict, arg):
-                raise TomcatError("There are not two or more versions for the context path {0}".format(arg))
-        rollbacks = self._versions_to_rollback(app_dict, args)
-        self.undeploy(rollbacks)
+        # TODO: Handle a case where app versions are not coherent
+        all_apps = self.c.webapp_status()
+        def find_versions(path):
+            av = ( (k,v) for k,v in all_apps.items() if v['path'] == path )
+            return sorted(av, key=lambda (k,v): v['webappVersion'], reverse=True)
+
+        rv = {}
+        for path in paths:
+            self.log.info("Attempting a cluster-wide rollback of %s", path)
+            vers = find_versions(path)
+            if len(vers) > 1:
+                (ctx, v) = vers[0]
+                # TODO: Only undeploy from nodes that have this version
+                rv[path] = self.undeploy([ ctx ])
+            else:
+                rv[path] = TomcatError(
+                    "Failed to roll back '{0}': Path is served by only {1} version(s) {2}"
+                    .format(path, len(vers), map(lambda (k,v): k, vers)))
+                self.log.warn(rv[path])
+        return rv
