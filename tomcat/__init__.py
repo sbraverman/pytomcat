@@ -11,6 +11,7 @@ class Tomcat:
     progress_callback = None
 
     def __init__(self, host, user = 'admin', passwd = 'admin', port = 8080):
+        (self.host, self.port) = (host, port)
         self.log = logging.getLogger('pytomcat.Tomcat')
         self.name = 'Tomcat at {0}:{1}'.format(host,port)
         self.jmx = JMXProxyConnection(host, user, passwd, port)
@@ -383,9 +384,7 @@ class TomcatCluster:
 
     def __init__(self, host = None, user = None, passwd = None, port = 8080):
         self.log = logging.getLogger('pytomcat.TomcatCluster')
-        self.user = user
-        self.passwd = passwd
-        self.port = port
+        (self.user, self.passwd, self.port) = (user, passwd, port)
         if host != None:
             self._discover(Tomcat(host, user, passwd, port))
 
@@ -395,9 +394,10 @@ class TomcatCluster:
         else:
             members = t.cluster_members().values()
         for h in map(lambda x: x['hostname'], members):
-            if not h in self.members:
+            member_id = '{0}:{1}'.format(h, self.port)
+            if not member_id in self.members:
                 self.log.info("Autodiscovered cluster member '%s'", h)
-                self.members[h] = Tomcat(h, self.user, self.passwd, self.port)
+                self.add_member(Tomcat(h, self.user, self.passwd, self.port))
                 self._discover(self.members[h])
         self.set_progress_callback(self.progress_callback)
 
@@ -412,9 +412,10 @@ class TomcatCluster:
         return len(self.members)
 
     def add_member(self, t):
-        if t.host in members:
-            raise TomcatError('{0} already exists'.format(t.host))
-        members[t.host] = t
+        member_id = '{0}:{1}'.format(t.host, t.port)
+        if member_id in self.members:
+            raise TomcatError('{0} already exists'.format(member_id))
+        self.members[member_id] = t
 
     def run_command(self, command, *args, **opts):
         if len(self.members) <= 0:
