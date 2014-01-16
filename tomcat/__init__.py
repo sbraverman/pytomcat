@@ -259,7 +259,7 @@ class Tomcat:
             deployers = [ 'Catalina:type=Deployer,host={0}'.format(vhost) ]
 
         for d in deployers:
-            self.jmx.invoke(d, 'checkUndeploy')
+            self.jmx.invoke(d, 'checkUndeploy', timeout=20)
 
     def find_connectors(self):
         '''
