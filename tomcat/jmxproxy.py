@@ -15,13 +15,15 @@ class JMXProxyConnection:
         b64 = base64.standard_b64encode('%s:%s' % (user, passwd))
         self.auth_header = 'Basic %s' % b64
 
-    def _do_get(self, request):
+    def _do_get(self, request, timeout=None):
+        if timeout is None:
+            timeout=self.timeout
         request = urllib2.Request('%s?%s' % (self.baseurl, request))
         cmd_url = request.get_full_url()
         request.add_header("Authorization", self.auth_header)
         self.log.debug("JMXProxy request: %s", cmd_url)
         try:
-            result = urllib2.urlopen(request, None, self.timeout)
+            result = urllib2.urlopen(request, None, timeout)
         except Exception as e:
             raise TomcatError('Error communicating with {0}: {1}'.format(cmd_url, e))
         rv = result.read().replace('\r','')
@@ -50,7 +52,10 @@ class JMXProxyConnection:
         data = self._do_get(urllib.urlencode(
                    { 'set': bean, 'att': property, 'key': key }))
 
-    def invoke(self, bean, op, *params):
+    def invoke(self, bean, op, *params, **custConnParams):
+        timeout = self.timeout
+        if custConnParams['timeout']:
+            timeout = custConnParams['timeout']
         data = self._do_get(urllib.urlencode(
-                   { 'invoke': bean, 'op': op, 'ps': ','.join(params) }))
+                   { 'invoke': bean, 'op': op, 'ps': ','.join(params) }), timeout)
         return parse('invoke_results', data)
