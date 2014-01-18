@@ -54,7 +54,7 @@ class JMXProxyConnection:
 
     def invoke(self, bean, op, *params, **custConnParams):
         timeout = self.timeout
-        if custConnParams['timeout']:
+        if 'timeout' in custConnParams:
             timeout = custConnParams['timeout']
         data = self._do_get(urllib.urlencode(
                    { 'invoke': bean, 'op': op, 'ps': ','.join(params) }), timeout)
