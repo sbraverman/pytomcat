@@ -398,7 +398,7 @@ class TomcatCluster:
             if not member_id in self.members:
                 self.log.info("Autodiscovered cluster member '%s'", h)
                 self.add_member(Tomcat(h, self.user, self.passwd, self.port))
-                self._discover(self.members[h])
+                self._discover(self.members[member_id])
         self.set_progress_callback(self.progress_callback)
 
     def _run_progress_callback(self, **args):
