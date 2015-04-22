@@ -7,7 +7,7 @@ from tomcat import Tomcat, TomcatCluster, wait_until
 from tomcat.deployer import ClusterDeployer
 
 class TomcatRunner:
-    port_names = { 'SHUTDOWN_PORT', 'HTTP_PORT', 'CLUSTER_PORT' }
+    port_names = [ 'SHUTDOWN_PORT', 'HTTP_PORT', 'CLUSTER_PORT' ]
     timeout = 1
 
     def __init__(self, tomcat_dir, node_count = 2, user='admin', passwd='admin'):
