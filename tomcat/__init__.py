@@ -129,7 +129,7 @@ class Tomcat:
         '''
         return self._restarter != None
 
-    def restart(self, timeout=600):
+    def restart(self, timeout=1000):
         '''
         Restart this instance of Tomcat.
         Restarting will only work if Tomcat is launched by a supported wrapper
@@ -142,6 +142,17 @@ class Tomcat:
                 return self.server_status() == 'STARTED'
             except: 
                 return False
+        def apps_started(apps):
+            try:
+                all_restarted = False
+                while not all_restarted:
+                    current_apps = map(lambda x: (x['baseName'], x['stateName']=='STARTED') ,self.list_webapps().values())
+                    original_apps = map(lambda x: (x, True), apps)
+                    all_restarted = all_restarted or set(original_apps).issubset(set(current_apps))
+                return all_restarted
+            except:
+                return False
+        apps = map(lambda x: x['baseName'], self.list_webapps().values())
         if not self.can_restart():
             raise TomcatError('{0} does not support remote restarting'
                               .format(self.name))
@@ -152,6 +163,9 @@ class Tomcat:
         if not wait_until(started, timeout):
             raise TomcatError('Timed out waiting for {0} to boot up'
                               .format(self.name))
+        if not wait_until(lambda: apps_started(apps), timeout):
+            raise TomcatError('Timed out waiting for applications ({0}) to boot up'
+                              .format(apps))
 
     def cluster_name(self):
         '''

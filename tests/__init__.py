@@ -9,6 +9,7 @@ class TomcatIntegrationTestCase(unittest.TestCase):
     # TODO: Save appserver and pytomcat logs
 
     tomcat_dir = '/tmp/apache-tomcat-7.0.39'
+    properties_file = '/tmp/test.properties'
     war_dir = os.path.join(os.path.dirname(__file__), 'test_wars')
 
     @classmethod
@@ -33,6 +34,22 @@ class TomcatIntegrationTestCase(unittest.TestCase):
         self.add_war(apps, fname, path, ver)
         self.deploy(apps)
 
+    def restart(self):
+        self.tr.deployer.restart()
+
     def deploy(self, apps):
         self.tr.deployer.deploy(apps)
+
+    def changeProperty(self, newValue):
+        with open(self.properties_file, 'w') as props:
+            propertyString = "launch: {propertyValue}".format(propertyValue=newValue)
+            props.write(propertyString)
+        
+        
+    def enable_conditional(self):
+        self.changeProperty(True)
+
+    def disable_conditional(self):
+        self.changeProperty(False)
+
 
