@@ -8,7 +8,7 @@ from tomcat import *
 class TomcatIntegrationTestCase(unittest.TestCase):
     # TODO: Save appserver and pytomcat logs
 
-    tomcat_dir = '/tmp/apache-tomcat-7.0.39'
+    tomcat_dir = '/tmp/apache-tomcat-7.0.62'
     properties_file = '/tmp/test.properties'
     war_dir = os.path.join(os.path.dirname(__file__), 'test_wars')
 

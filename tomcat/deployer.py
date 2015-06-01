@@ -269,7 +269,7 @@ class ClusterDeployer:
                 .format(self.restart_fraction * 100, self.c.member_count()))
         self.log.debug("Restarting %d nodes at once", threads)
         opts = { 'abort_on_error': True, 'threads': threads }
-        if len(hosts) > 0:
+        if hosts:
             opts['hosts'] = hosts
         rv = self.c.run_command('restart', **opts)
         # TODO: raise Error
