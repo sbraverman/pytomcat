@@ -129,7 +129,7 @@ class Tomcat:
         '''
         return self._restarter != None
 
-    def restart(self, timeout=500):
+    def restart(self, timeout=1000):
         '''
         Restart this instance of Tomcat.
         Restarting will only work if Tomcat is launched by a supported wrapper
@@ -145,13 +145,10 @@ class Tomcat:
         def apps_started(apps):
             try:
                 all_restarted = False
-                max_restart_attempts = 5
-                current_restart_iteration = 0
                 while not all_restarted:
                     current_apps = map(lambda x: (x['baseName'], x['stateName']=='STARTED') ,self.list_webapps().values())
                     original_apps = map(lambda x: (x, True), apps)
-                    current_restart_iteration += 1
-                    all_restarted = all_restarted or set(original_apps).issubset(set(current_apps)) or current_restart_iteration >= max_restart_attempts
+                    all_restarted = all_restarted or set(original_apps).issubset(set(current_apps))
                 return all_restarted
             except:
                 return False
