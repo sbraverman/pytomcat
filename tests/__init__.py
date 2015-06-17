@@ -35,7 +35,10 @@ class TomcatIntegrationTestCase(unittest.TestCase):
         self.deploy(apps)
 
     def restart(self):
-        self.tr.deployer.restart()
+        self.tr.restart()
+
+    def status(self):
+        return self.tr.check_status()
 
     def deploy(self, apps):
         self.tr.deployer.deploy(apps)
