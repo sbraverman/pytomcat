@@ -37,6 +37,10 @@ class TomcatRunner:
         self.__stop_servers()
         self.__remove_homes()
 
+    def restart(self):
+        self.__stop_servers()
+        self.__start_servers()
+
     def __validate_tomcat_installation(self):
         for f in [ 'bin/catalina.sh', 'lib/catalina.jar' ]:
             if not os.path.exists(os.path.join(self.tomcat_dir, f)):
@@ -71,6 +75,9 @@ class TomcatRunner:
             r = self.cluster.run_command('server_status').all_results
             return len(filter(lambda x: x != 'STARTED', r.values())) == 0
         wait_until(all_started, 10, 0.5)
+
+    def check_status(self):
+        return self.cluster.run_command('list_webapps').all_results
 
     def __run_catalina(self, node, args):
         # TODO: Support catalina.bat on windows

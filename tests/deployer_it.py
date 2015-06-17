@@ -36,5 +36,33 @@ class ClusterDeployerIT(TomcatIntegrationTestCase):
         self.deploy_war('hello.war',   '/slow1', '0002')
         self.deploy_war('goodbye.war', '/slow1', '0003')
 
+    def testSimpleRestartWorks(self):
+        self.enable_conditional()
+        self.deploy_war('conditional.war', '/simplerestart')
+        self.restart()
+        for servers,wars in self.status().iteritems():
+            self.assertEqual(wars['/simplerestart']['stateName'], "STARTED") 
+
+    def testMultipleAppRestartWorks(self):
+        apps = {}
+        self.enable_conditional()
+        self.add_war(apps, 'hello.war',   '/multirestart1')
+        self.add_war(apps, 'goodbye.war', '/multirestart2')
+        self.deploy(apps)
+        self.restart()
+        for servers,wars in self.status().iteritems():
+            self.assertEqual(wars['/multirestart1']['stateName'], "STARTED") 
+            self.assertEqual(wars['/multirestart2']['stateName'], "STARTED") 
+
+    def testInvalidWarRaisesErrorRestart(self):
+        self.enable_conditional()
+        self.deploy_war('conditional.war', '/conditional')
+        for servers,wars in self.status().iteritems():
+            self.assertEqual(wars['/conditional']['stateName'], "STARTED") 
+        self.disable_conditional()
+        self.restart()
+        for servers,wars in self.status().iteritems():
+            self.assertEqual(wars['/conditional']['stateName'], "STOPPED") 
+
 if __name__ == '__main__':
     unittest.main()
