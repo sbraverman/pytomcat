@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import time, logging
+import time, logging, sys
 from . import *
 import events
 
@@ -272,7 +272,9 @@ class ClusterDeployer:
         if hosts:
             opts['hosts'] = hosts
         rv = self.c.run_command('restart', **opts)
-        # TODO: raise Error
+        if rv.has_failures:
+            self.log.error("There were failed applications after restart")
+            sys.exit(1)
 
     def rollback(self, paths):
         """

@@ -153,7 +153,6 @@ class Tomcat:
                     all_restarted = all_restarted or set(original_apps).issubset(set(current_apps))
                     attempts += 1
                     if attempts >= max_attempts:
-                        self.log.error("Reached Max attempts at restarting, giving up")
                         break
                 return all_restarted
             except:
