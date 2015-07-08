@@ -129,7 +129,7 @@ class Tomcat:
         '''
         return self._restarter != None
 
-    def restart(self, timeout=500):
+    def restart(self, timeout=600):
         '''
         Restart this instance of Tomcat.
         Restarting will only work if Tomcat is launched by a supported wrapper
