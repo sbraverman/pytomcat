@@ -12,21 +12,19 @@ class TomcatIntegrationTestCase(unittest.TestCase):
     properties_file = '/tmp/test.properties'
     war_dir = os.path.join(os.path.dirname(__file__), 'test_wars')
 
-    @classmethod
-    def setUpClass(cls):
+    def setUp(self):
         #logging.basicConfig(filename='example.log', filemode='w', level=logging.DEBUG)
         logging.basicConfig(level=100)
-        cls.tr = TomcatRunner(cls.tomcat_dir)
-        cls.tr.start()
+        self.tr = TomcatRunner(self.tomcat_dir)
+        self.tr.start()
 
-    @classmethod
-    def tearDownClass(cls):
-        cls.tr.stop()
+    def tearDown(self):
+        self.tr.stop()
 
     def add_war(self, apps, fname, path=None, ver=None):
         if path == None:
             (_, path, ver) = parse_warfile(fname)
-        ctx = (path if ver == None else '{0}##{1}'.format(path, ver))
+        ctx = (path if ver is None else '{0}##{1}'.format(path, ver))
         apps.update({os.path.join(self.war_dir, fname): (ctx, path, ver)})
 
     def deploy_war(self, fname, path=None, ver=None):
